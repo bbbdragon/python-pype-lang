@@ -412,17 +412,18 @@ def is_lambda(fArg):
     return is_tuple(fArg) \
         and len(fArg) >= 1 \
         and not is_mirror(fArg[0]) \
+        and not is_object(fArg[0]) \
         and is_f_arg(fArg[0])
 
 
 
 def eval_lambda(accum,fArgs):
 
-    #print('*'*30)
-    #print('eval_lambda')
-    #print('{} is accum'.format(accum))
-    #print('{} is fArgs'.format(fArgs))
-    #print('{} is fArgs[1:]'.format(fArgs[1:]))
+    print('*'*30)
+    print('eval_lambda')
+    print('{} is accum'.format(accum))
+    print('{} is fArgs'.format(fArgs))
+    print('{} is fArgs[1:]'.format(fArgs[1:]))
 
     accum=accum[ARGS][0]
     fArg=fArgs[0]
@@ -443,8 +444,8 @@ def eval_lambda(accum,fArgs):
 
     lambdaArgs=args(*[eval_or_val(accum,f) for f in fArgs[1:]])
     
-    #print('{} is lambdaArgs'.format(lambdaArgs))
-    #print('{} is eval of lambdaArgs'.format(pype(lambdaArgs,fArg)))
+    print('{} is lambdaArgs'.format(lambdaArgs))
+    print('{} is eval of lambdaArgs'.format(pype(lambdaArgs,fArg)))
 
     return args(pype(lambdaArgs,fArg))
 
@@ -461,7 +462,7 @@ def is_object_lambda(fArg):
  
    return is_tuple(fArg) \
         and len(fArg) > 1 \
-        and is_mirror(fArg[0]) \
+        and (is_mirror(fArg[0]) or is_object(fArg[0])) \
         and is_string(fArg[1])
 
 
@@ -481,17 +482,18 @@ def get_object_lambda_attr(accum,fArgs):
 
 def eval_object_lambda(accum,fArgs):
 
-    #print('*'*30)
-    #print('eval_object_lambda')
-    #print('{} is fArgs'.format(fArgs))
-    #print('{} is accum'.format(accum))
+    print('*'*30)
+    print('eval_object_lambda')
+    print('{} is fArgs'.format(fArgs))
+    print('{} is accum'.format(accum))
 
     accum=accum[ARGS][0]
-    attr=get_object_lambda_attr(accum,fArgs)
+    obj=accum if is_mirror(fArg[0]) else fArg[0]
+    attr=get_object_lambda_attr(obj,fArgs)
     fArgs=args(*[eval_or_val(accum,fArg) for fArg in fArgs[2:]])
 
-    #print('{} is attr'.format(attr))
-    #print('{} is fArgs'.format(fArgs))
+    print('{} is attr'.format(attr))
+    print('{} is fArgs'.format(fArgs))
 
     return args(eval_or_val(fArgs,attr))
 
@@ -1161,6 +1163,12 @@ def is_f_arg(fArg):
 
 def pype_eval(accum,fArg):
 
+    print('*'*30)
+    print('pype_eval')
+    print('{} is accum'.format(accum))
+    print('{} is fArg'.format(fArg))
+    print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
+
     evalList=[evl for (is_f,evl) in FARG_PAIRS if is_f(fArg)]
 
     if not evalList:
@@ -1824,6 +1832,19 @@ def demo():
 
     assert(x == 3)
 
+    print('='*30)
+
+    d={'call':Call()}
+
+    print('Call() is callable: {}'.format(is_callable(d['call'])))
+    print("pype(d,_['call'])")
+    print(_['call'].get_call_me)
+
+    x=pype(d,_['call'].get_call_me)
+
+    print(x)
+
+    sys.exit(1)
     #print('='*30)
 
     #print("pype({'a':1},(_,'a'))")
@@ -2018,8 +2039,6 @@ def demo():
     print(x)
 
     assert(x == [1,2,3,4,5])
-
-    #sys.exit(1)
 
     print('='*30)
 
