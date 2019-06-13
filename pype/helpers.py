@@ -2,7 +2,7 @@ from functools import reduce
 from collections import defaultdict
 import itertools
 from copy import deepcopy
-
+from operator import itemgetter
 
 def pair_dd(f=lambda:int()):
 
@@ -68,6 +68,11 @@ def add_tup(dct,tup):
     dct[tup[0]]=tup[1]
 
     return dct
+
+
+def tup_dct(tups):
+
+    return reduce(add_tup,tups,{})
 
 
 def add_tup_ls_dct(dct,tup):
@@ -151,6 +156,31 @@ def dct_merge(dct1,dct2):
 
     return dct1
 
+
+def dct_merge_vals(dct1,dct2):
+
+    for (k,d) in dct2.items():
+
+        if k not in dct1:
+
+            dct1[k]=d
+
+        else:
+
+            dct1[k]=dct_merge(dct1[k],d)
+
+    return dct1
+
+
+def dct_merge_vals_if(dct1,dct2):
+
+    for (k,d) in dct1.items():
+
+        if k in dct2:
+
+            dct1[k]=dct_merge(d,dct2[k])
+
+    return dct1
 
 def dct_merge_copy(dct1,dct2):
 
@@ -246,7 +276,41 @@ def sort_by_key(ls,key,rev=False):
     return sorted(ls,key=lambda js: js[key], reverse=rev)
 
 
+def sort_by_index(ls,index,rev=False):
+
+    return sorted(ls,key=itemgetter(index), reverse=rev)
+
+
 def ls_product(ls):
 
-    return itertools.product(ls,ls)
+    return list(itertools.product(ls,ls))
 
+
+def ls_append(ls,el):
+
+    ls.append(el)
+
+    return ls
+
+
+def key_ls_append(js,key,el):
+
+    js[key].append(el)
+
+    return js
+
+
+def add_key_as(dct,key):
+
+    for (k,d) in dct.items():
+
+        dct[k][key]=k
+
+    return dct
+
+    
+def zip_to_dct(tups,keys):
+
+    return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
+
+    

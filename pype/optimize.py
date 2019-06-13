@@ -20,7 +20,6 @@ from inspect import signature
 from collections import defaultdict
 from inspect import getsource
 from ast import *
-import astpretty
 import hashlib
 import types
 import sys
@@ -1282,9 +1281,9 @@ def optimize(pype_func):
 
         treeReplacer.visit(tree)
 
-        print('*'*30)
-        print('parse tree after')
-        astpretty.pprint(tree)
+        #print('*'*30)
+        #print('parse tree after')
+        #astpretty.pprint(tree)
         #pp.pprint(astunparse.dump(tree))
 
         exec(compile(tree,
