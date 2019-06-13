@@ -1,4 +1,8 @@
-from ast import *
+'''
+python3.7 new_my_optimize.py
+'''
+py_slice=slice
+import pype as pyp
 from pype import is_lambda
 from pype import _,_0,_1,_p
 from pype import _assoc as _a
@@ -6,894 +10,1043 @@ from pype import _dissoc as _d
 from pype import _merge as _m
 from pype import _l
 from pype import *
+from pype import pype as p
+from pype import pype as pype_f
 from itertools import groupby
 from pype.vals import delam,hash_rec
 from pype import INDEX_ARG_DICT
 from functools import reduce
 from inspect import signature
 from collections import defaultdict
-from inspect import source
+from inspect import getsource
 from ast import *
+import astpretty
 import hashlib
 import types
-'''
-OPTIMIZE
-
-One of the original drawbacks of pype for data-intensive applications was its
-performance.  For example, on a 16gb Ubuntu machine with 8 cores, where we define:
-
-ls=[1]*10000
-
-the following expression takes 6.9 seconds to run:
-
-pype(ls,[{'n':_}],[_a('n1',_['n']+1)])
-
-What is going on here?  There is the first mapping, which iterates through ls
-and builds a dictionary.  Every time the mapping visits an element of ls, the statement
-{'n':_} is interpreted by the pype interpreter.  Ditto for the second fArg.
-
-How can we solve this?  In the old days, I'd write two functions:
-
-fArg1=lambda ls: [{'n':el} for el in ls]
-
-def augment_dict(d):
- d[n1]=d['n']+1
- return d
-
-fArg2=lambda ls: [augment_dict(d) for d in ls]
-
-pype(ls,fArg1,fArg2)
-
-You can see that I'm converting pype fArgs into lambda functions which bypass the 
-interpreter in favor of more efficient structures such as list comprehensions.  However,
-it is easy to do this programmatically.  
-
-So the first solution is to iterate through the fArgs of a pype call, identify them,
-and call a function that converts the pype expression into a lambda, as we can see 
-above.  This is done by the function optimize_rec - it looks at the delammed fArg,
-sees if it matches any fArg types, and runs the corresponding function to convert that
-expression into a lambda.  
-
-This is what the function optimize_pype does.  Anything in fArgs that can be converted
-into a lambda is converted.  Consecutive callables in the fArgs list are then fused
-together using stack_funcs.  This way, something like [fArg1,fArg2,fArg3,fArg4] can 
-be converted into [lambda1,fArg3,lambda2], assuming that fArg1, fArg2, and fArg4 can
-be converted into lambdas.  We want to fuse callables together so that the pype 
-interpreter has less work to do passing the accum to consecutive fArgs.    
-
-However, this is rather invonvenient, especially with older pype projects.  Plus, I 
-really would like pype to stand on its own two feet as a truly performant language,
-capable of production code, or at least as capable as Python.
-
-If we have access to the abstract syntax tree (AST) of a function, we could perform
-the following operation:
-
-* if f has source and can be converted into an AST, then for all pype calls in f:
-
-  * recompile the fArg AST expressions
-
-  * optimize the fArgs using optimize_rec
-
-  * fuse the callables of the fArgs together
-
-  * if not all callables can be fused together:
-
-    *  we recompile each fArg from the AST, run optimize_rec on this expression, and 
-       replace fArg expressions with lambdas in the AST, allthewhile updating the 
-       namespace with these new functions.
-    * we recompile f from the updated AST and namespace
-
-  * if all of the callables can be fused together into a single callable c:
-
-      * we can replace the pype expression pype(accum,fArg1,fArg2,...) with c(accum)
-        in the AST
-      * if accum matches the arguments of the encolosing function, and there is only
-        one pype call, and that call is in the return, and there is no code
-        in between the function definition and the returned pype call, then we return
-        c.
-      * otherwise, we return the original function, c(accum) where the pype expressions
-        used to be
-
-  * any function called in f whose AST can be retrieved from source is recursively 
-    optimized.
-
-This can be done by the decorator @optimize.  Simply put this decorator on the main
-pype function, and let the optimizer do the work.  For example, let's have two
-functions:
-
-def sum(tup):
-  return pype(tup,_0+_1)
-
-def calc(ls):
-  return pype(ls,(zip,_,_[1:]),[sum])
-
-For if ls has 10,000 elements, calc(ls) will take 3.6 seconds.  Now, let's decorate it:
-
-from pype.optimize import optimize 
-
-@optimize
-def calc(ls):
-  return pype(ls,(zip,_,_[1:]),[sum])
-
-Just for fun, what is going on here?
-
-* We see that calc has source, so we generate the AST tree, or calc_AST.
-* We look into calc_AST and see it has one pype call, with two fArgs, (zip,_,_[1:]) and
-  [sum].  The first can be converted into a lambda, lambdaZip, and the second can
-  be converted into a map, lambdaMap.  
-* But wait, lambdaMap contains a function which can be turned into an AST as well.  
-* We see that this has a pype call with 1 fArg, a lamTup expression.  We convert this
-  into a lambda, lambdaTup.  So we replace _0+_1 with lambdaTup in the AST, and sm
-  now looks like:
-
-  def sm(ls):
-   return pype(ls,lambdaTup)
-
-* Except wait, the accum in the pype expression of sm is the same as the arguments of 
-  sm, and there's no code in the function body except for the return pype expression.
-  So, in mapZip in calc_AST, we replace sm wiith lambdaTup, so that now, calc looks
-  like:
-
-  def calc(ls):
-   return pype(ls,lambdaZip,[lambdaTup])
-
-* We know that maps can be reduced to lambdas, so now we replace [lambdaTup] with
-  lambdaMap:
-
-  def calc(ls):
-    return pype(ls,lambdaZip,lambdaMap)
-
-* But we also see that lambdaZip and lambdaMap are two consecutive callables, so we can
-  fuse them together into lambdaStacked:
-
-  def calc(ls):
-    return pype(ls,lambdaStacked)
-
-* But, just like with sm, the arguments of the function match thoe of pype, and there
-  is no code in between them, so we just assume that calc == lambdaStacked.  
-
-Now, it calc(ls) takes 70 milliseconds instead of 3.8 seconds. The first expression
-went from 6.9 seconds to 80 milliseconds.  
-
-That's an improvement of several orders of magnitude.
-
-Compilation time rarely exceeds 5 milliseconds.
-
-Purdy kewellll ...
-'''
-###########
-# HELPERS #
-###########
-
-def call_or_val(x,f):
-    '''
-    Similar to eval_or_val.  Return f(x) if f is callable, otherwise just f.
-    '''
-    return f(x) if is_callable(f) else f
-
-
-def call_or_val_if_none(x,f):
-    '''
-    Similar to eval_or_val.  Return f(x) if f is callable, otherwise just f.
-    '''
-    return x if f is None else f(x) if is_callable(f) else f
-
-
-def stack_funcs(funcs):
-    '''
-    Creates a callable from a list of callables.  If there is more than one
-    callable, we wrap the callables in a reduce.
-    '''
-    if len(funcs) == 1:
-
-        return funcs[0]
-
-    else:
-
-        return lambda x: reduce(lambda h,f: f(h),
-                                 funcs[1:],
-                                 funcs[0](x))
-
-
-def all_callable(optimizedFArg):
-    '''
-    When we have a list of fArgs that we've optimized, we can build a callable
-    putting them together in some way only if everything in the fArg has
-    successfully been converted into callables.  Otherwise, we need a different
-    strategy, returning something resembling the original fArg.  
-    '''
-    return all([is_callable(l) for l in optimizedFArg])
-
-
-def is_optimized(optimizedFArg):
-    '''
-    We know that something is optimized if it is either a callable or a constant,
-    non-fArg value.
-    '''
-    return is_callable(optimizedFArg) or not is_f_arg(optimizedFArg)
-
-
-def all_optimized(optimizedFArg):
-    '''
-    This is for cases like lambda expressions where you may have non-fArg values.
-    For example an expression like:
-
-    (add,1,(add,_,_))
-
-    (add,_,_) can be converted into a callable, but 1 is not an fArg, so we should
-    just leave it as such.  
-    '''
-    return all([is_optimized(l) for l in optimizedFArg])
-
-
-##################
-# MAIN OPTIMIZER #
-##################
-
-def optimize_rec(fArg):
-    '''
-    This iterates through OPTIMIZE_PAIRS, which is a list of tuples 
-    [(is_f_arg,optimize_f_arg),...] where is_f_arg is a boolean that identifies 
-    the fArg type and optimize_f_arg is a function that converts the fArg into a 
-    callable with one argument, or f(x).  
-
-    We do this by going through OPTIMIZE_PAIRS, finding the last boolean to 
-    evaluate as True.  Then, we take its corresponding optimize function and 
-    apply this to fArg.  
-
-    If there are no matches, we return the original fArg.  We do this to ensure
-    that fArgs that are not covered by this module can still be interpreted.
-
-    Because optimize_rec is called in the optimize functions, this function is
-    recursive.  
-
-    Also notice that the decorator optimize is called on any callable fArgs, to 
-    see whether the function contains any pype expressions that can be optimized.
-    '''
-    fArg=delam(fArg)
-    evals=[(evl_f(fArg),opt_f) for (evl_f,opt_f) in OPTIMIZE_PAIRS]
-    opt_fs=[opt_f for (evl,opt_f) in evals if evl]
-
-    if opt_fs:
-
-        opt_f=opt_fs[-1](fArg)
-
-        return opt_f
-
-    return fArg
-
-
-def optimize_f_args(fArgs):
-    '''
-    This helper calls optimize_rec on a list of fArgs.
-    '''
-    return [optimize_rec(a) for a in fArgs]
-
-
-def get_f_from_optimized(optimizedFArg):
-    '''
-    If all fArgs in optimizedFargs are callable, then we return the first element
-    if there is only one element, otherwise we call stack_funcs on the list.
-    '''
-    if len(optimizedFArg) == 1:
-
-        return optimizedFArg[0]
-
-    else:
-
-        return stack_funcs(optimizedFArg)
-
-
-'''
-OPTIMIZERS
-
-The grand strategy of each optimizer function is to run optimize_rec recursively
-on the fArg structure.  If everything in the fArg structure has successfully been
-converted into a callable, then we can compose a new callable around that.
-
-For example, let's say I can convert fArg1,fArg2, and fArg3 into callables f1,
-f2, and f3.  This means that I can take a lambda expression:
-
-(fArg1,fArg2,fArg3)
-
-and convert it into a function f1(f2(x),f3(x)).  But if fArg3 cannot be turned into
-a callable, then I return:
-
-(f1,f2,fArg3).
-'''
-
-#############
-# INDEX ARG #
-#############
-
-def optimize_index_arg(fArg):
-    '''
-    The returned function is gets the integer from INDEX_ARG_DICT keyed by the 
-    fArg (_0,_1,_last, etc.).  Index args are some of the most commonly used pype
-    expressions, so we do these first.
-    '''
-    def ind_arg(ctnr):
-
-        return ctnr[INDEX_ARG_DICT[fArg]]
-
-    return ind_arg
-
+import sys
+from pype.vals import LamTup
+from pype import ALL_GETTER_IDS
+import _operator
+import builtins
+import numpy as np
+from functools import wraps
+from copy import deepcopy
+import pprint as pp
+
+NUMPY_UFUNCS=set(dir(np))
+ACCUM_STORE=Name(id='accum',ctx=Store())
+ACCUM_LOAD=Name(id='accum',ctx=Load())
+RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
 
 ##########
 # MIRROR #
 ##########
 
-def optimize_mirror(fArg):
-    '''
-    As the mirror is just the identity function, we return the identity function.
-    '''
-    return lambda x:x
+def mirror_node(fArgs,accum=ACCUM_LOAD):
+
+    return accum
 
 
-##########
-# LAMBDA #
-##########
+############
+# CALLABLE #
+############
 
-def optimize_lambda(fArg):
-    '''
-    If we have successfully converted every embedded fArg into a callable,
-    we return a callable composed of these functions.  However, if there is at
-    least one non-callable in the converted lambda, then we return that 
-    lambda expression, with whatever we callables we could find (see above 
-    example).  
-    '''
-    f=optimize_rec(fArg[0])
-    lambdaArgs=fArg[1:]
-    optimizedLambdaArgs=optimize_f_args(lambdaArgs)
+import importlib
+
+def module_attribute(moduleStrings):
+
+    if len(moduleStrings) == 1:
+
+        return Name(id=moduleStrings[0],ctx=Load())
+
+    return Attribute(value=module_attribute(moduleStrings[1:]),
+                     attr=moduleStrings[0],
+                     ctx=Load())
+
+
+NUMPY_NAME=Name(id='np',ctx=Load())
     
-    if is_callable(f) and all_optimized(optimizedLambdaArgs):
-       
-        #print('optimize_lambda')
-        #print(f'{fArg}')
- 
-        return lambda x: f(*[call_or_val(x,g) for g in optimizedLambdaArgs])
+def callable_node_with_args(fArg,callableArgs):
 
-        #print(f'{f},{signature(f)}')
+    #print('='*30)
+    #print('callable node')
 
-        #return f
+    fArgName=fArg.__name__
 
-    return (f,*optimizedLambdaArgs)
+    if fArgName in NUMPY_UFUNCS:
 
+        return Call(func=Attribute(value=NUMPY_NAME,
+                                   attr=fArgName,
+                                   ctx=Load()),
+                    keywords=[],
+                    args=callableArgs)
 
-#######
-# MAP #
-#######
+    #print(f'id is {fArg.__name__}')
+    #print(f'module is {fArg.__module__}')
 
-def optimize_map(fArg):
-    '''
-    This optimizes a map of fArgs.  If all fArgs are callable, we fuse them into
-    a single callable, f, using get_f_from_optimized.  Then, we return a callable
-    that runs a list comprehension of f on each element of the list.
+    if fArg.__module__ == '__main__':
 
-    If this is unsuccessful, we return a list of the optimized fArgs.
-
-    This was a particularly dramatic improvement.
-    '''
-    optimizedFArg=optimize_f_args(fArg)
+        return Call(func=Name(id=fArgName,ctx=Load()),
+                    keywords=[],
+                    args=callableArgs)
     
-    if all_callable(optimizedFArg):
+    moduleStrings=fArg.__module__.split('.')
+    
+    moduleStrings.reverse()
 
-        f=get_f_from_optimized(optimizedFArg)
+    return Call(func=Attribute(value=module_attribute(moduleStrings),
+                               attr=fArgName,
+                               ctx=Load()),
+                keywords=[],
+                args=callableArgs)
 
-        def mp(ctnr):
+                          
 
-            if is_dict(ctnr):
+def callable_node(fArg,accumLoad=ACCUM_LOAD):
 
-                return {k:f(v) for (k,v) in ctnr.items()}
+    return callable_node_with_args(fArg,[accumLoad])
 
-            return [f(el) for el in ctnr]
 
-        return mp
+#############
+# INDEX ARG #
+#############
 
-    else:
+def index_arg_node(fArg,accum=ACCUM_LOAD):
 
-        return optimizedFArg
+    return Subscript(value=accum,
+                     slice=Index(value=Num(n=INDEX_ARG_DICT[fArg])),
+                     ctx=Load())
 
 
 #########
 # INDEX #
 #########
 
-def optimize_index(fArg):
-    '''
-    If we successfully optimize the indexed element and the indices, we
-    return a reduce which iterates through the indices and gets us the element.
-    
-    Otherwise, we return the original structure, with whatever optimized fArgs
-    exist.
-    '''
-    indexed=optimize_rec(fArg[0])
-    indices=[optimize_rec(f[0]) for f in fArg[1:]]
-    
-    return lambda x: reduce(lambda h,index:h[index(x)] \
-                                           if is_callable(index) else h[index],
-                            indices,
-                            call_or_val(x,indexed))
+from operator import getitem
 
+def has_getitem(fArgs):
+
+    #print(f'is_getter(fArgs[0]) is {is_getter(fArgs[0])}')
+
+    if not fArgs:
+
+        return False
+
+    if is_callable(fArgs) and fArgs == getitem:
+
+        return True
+
+    if (is_list(fArgs) or is_tuple(fArgs)) and len(fArgs) > 1:
+
+        return has_getitem(fArgs[0])
+
+    if is_getter(fArgs):
+
+        #print(f'{fArgs} is getter')
+
+        return True
+
+    return False
+
+#########
+# SLICE #
+#########
+
+def is_slice(fArg):
+
+    return is_tuple(fArg)\
+        and len(fArg) == 3\
+        and fArg[0] == py_slice
+
+
+def slice_node(fArg,accum):
+
+    #print(f'computing slice for {fArg}')
+
+    lower=optimize_rec(fArg[1],accum)
+    upper=optimize_rec(fArg[2],accum)
+
+    return Slice(lower=lower,
+                 upper=upper,
+                 step=None) # Include step in the syntax
+
+
+#########
+# INDEX #
+#########
+
+def is_index(fArg):
+
+    return pyp.is_index(fArg) \
+        or (is_tuple(fArg) \
+        and len(fArg) == 3 \
+        and has_getitem(fArg))
+
+
+def chain_indices(indexedObject,indices):
+
+    if not indices:
+
+        return indexedObject
+
+    index=indices[0]
+
+    if isinstance(index,int):
+
+        index=Index(value=Num(n=index))
+
+    if isinstance(index,str):
+
+        index=Index(value=Str(s=index))
+
+    if is_ast_name(index):
+
+        index=Index(value=index)
+
+    return Subscript(value=chain_indices(indexedObject,indices[1:]),
+                     slice=index,
+                     ctx=Load())
+
+
+def index_node(fArgs,accum=ACCUM_LOAD):
+
+    #print(f'computing index node {fArgs}')
+    indexedObject=fArgs[0]
+    indices=fArgs[1:]
+
+    if is_callable(fArgs[0]) and fArgs[0] == getitem:
+        
+        indexedObject=fArgs[1]
+        indices=fArgs[2:]
+
+    #print(f'optimizing indexedObject {indexedObject}')
+    optimizedIndexedObject=optimize_rec(indexedObject,accum) # Should just be a mirror
+    #print(f'optimizedIndexedObject is {dump(optimizedIndexedObject)}')
+    optimizedIndices=[optimize_rec(f,accum) if is_f_arg(f) else f[0] for f in indices]
+    #print(f'{optimizedIndices} is optimizedIndices')
+    ci=chain_indices(optimizedIndexedObject,optimizedIndices)
+
+    #print(dump(ci))
+
+    return ci
+
+
+def replace_index_names(fArgs,node):
+
+    #print('replace_index_names')
+    #astpretty.pprint(node)
+
+    if isinstance(node,Tuple):
+
+        nodeIndexArgs=[el.elts[0] for el in node.elts[1:]]
+
+    elif isinstance(node,Subscript):
+
+        nodeIndexArgs=[node.slice.value]
+
+    else:
+
+        raise Exception(f'replace index name, fArgs are {fArgs}'
+                        ' node is {dump(node)}')
+
+    indexArgs=[[el] if is_ast_name(el) \
+                else replace_with_name_node_rec(fArg,el) \
+                for (el,fArg) in zip(nodeIndexArgs,fArgs[1:])]
+
+    #print(f'{nodeIndexArgs} is nodeIndexArgs')
+    #print(f'{indexArgs} is indexedArgs')
+
+    return (fArgs[0],*indexArgs)
+
+    
+##########
+# LAMBDA #
+##########
+
+import ast
+
+def is_lambda(fArg):
+
+    if has_getitem(fArg):
+
+        return False
+
+    return is_tuple(fArg) \
+        and len(fArg) >= 1 \
+        and not is_mirror(fArg[0]) \
+        and fArg[0] != py_slice \
+        and is_f_arg(fArg[0])
+
+
+def lambda_node(fArgs,accum=ACCUM_LOAD):
+    # First element of lambda must be callable.  Replace with real fArg when you can.
+    #print('*'*30)
+    #print('lambda_node')
+    #print(f'{fArgs} is fArgs')
+
+    if fArgs[0].__name__ == '<lambda>':
+
+        raise Exception(f'With fArgs[0] {fArgs[0]}, you cannot '
+                        'include Python lambdas in a function defintion when '
+                        'optimizing.  Redefine this using def.')
+
+    optimizedLambdaArgs=[optimize_rec(fArg,accum) for fArg in fArgs[1:]]
+
+    return callable_node_with_args(fArgs[0],optimizedLambdaArgs)
+
+
+def replace_lambda_names(fArgs,node):
+
+    #print('*'*30)
+    #print('replace_lambda_names')
+    #print(f'{fArgs} is fArgs')
+    #print(f'{node} is node')
+    #print(f'{has_getitem(fArgs)} is has_getitem(fArgs)')
+
+    # You may need to parse the fArg[0]
+
+    if isinstance(node,BinOp):
+
+        leftArg=replace_with_name_node_rec(fArgs[1],node.left)
+        rightArg=replace_with_name_node_rec(fArgs[2],node.right)
+
+        #print(f'rightArg is {dump(rightArg) if is_ast_name(rightArg) else rightArg}')
+
+        return (fArgs[0],leftArg,rightArg)
+
+    if isinstance(node,UnaryOp):
+
+        lambdaArg=node.operand if is_ast_name(node) \
+                    else replace_with_name_node_rec(fArgs[1],node.operand)
+
+        return (fArgs[0],lambdaArg)
+
+    if isinstance(node,Compare):
+
+        leftArg=node.left if is_ast_name(node.left) else fArgs[1]
+        comparator=node.comparators[0]
+        rightArg=comparator if is_ast_name(comparator) else fArgs[2]
+
+        return (fArgs[0],leftArg,rightArg)
+
+    if isinstance(node,Tuple):
+        
+        lambdaArgs=[replace_with_name_node_rec(fArg,el) \
+                    for (fArg,el) in zip(fArgs,node.elts)]
+
+        return tuple(lambdaArgs)
+
+    if isinstance(node,Subscript):
+
+        nodeList=node.value
+
+        if isinstance(node.slice,Slice):
+
+            nodeList.extend([node.slice.lower,node.slice.upper])
+        
+        elif isinstance(node.slice,Index):
+
+            nodeList.append(node.slice.value)
+
+        return tuple([replace_with_name_node_rec(fArg) \
+                      for (fArg,el) in zip(fArgs,nodeList)])
+
+    return fArgs
+        
+
+
+##############################
+# HELPERS FOR MAP AND FILTER #
+##############################
+
+LOADED_DICT_KEY=Name(id='k',ctx=Load())
+LOADED_DICT_VALUE=Name(id='v',ctx=Load())
+STORED_DICT_KEY=Name(id='k',ctx=Store())
+STORED_DICT_VALUE=Name(id='v',ctx=Store())
+
+def dict_comp(accum,
+              mapValue,
+              ifsList=[],
+              loadedDictKey=LOADED_DICT_KEY,
+              storedDictKey=STORED_DICT_KEY,
+              storedDictValue=STORED_DICT_VALUE,
+             ):
+
+    if not is_list(ifsList):
+
+        ifsList=[ifsList]
+
+    return DictComp(key=loadedDictKey,
+                    value=mapValue,
+                    generators=[
+                        comprehension(target=Tuple(elts=[storedDictKey,
+                                                         storedDictValue],
+                                                   ctx=Store()),
+                                      iter=Call(func=Attribute(value=accum,
+                                                               attr='items',
+                                                               ctx=Load()),
+                                                args=[],
+                                                keywords=[]),
+                                      is_async=False,
+                                      ifs=ifsList)])
+
+
+LOADED_LIST_ELEMENT=Name(id='list_element',ctx=Load())
+STORED_LIST_ELEMENT=Name(id='list_element',ctx=Store())
+
+def list_comp( accum,
+               loadedListElement,
+               storedListElement,
+               ifsList=[]
+             ):
+
+    if not is_list(ifsList):
+
+        ifsList=[ifsList]
+
+    return ListComp(elt=loadedListElement,
+                    generators=[comprehension(target=storedListElement,
+                                              iter=accum,
+                                              is_async=False,
+                                              ifs=ifsList)])
+
+
+#######
+# MAP #
+#######
+
+def map_list_node(fArg,
+                  accum=ACCUM_LOAD,
+                  loadedListElement=LOADED_LIST_ELEMENT,
+                  storedListElement=STORED_LIST_ELEMENT):
+
+    #print('is map_list_node')
+
+    if len(fArg) > 1:
+
+        raise Exception(f'Multiple fArgs in maps deprecated.'
+                        'Use separate maps instead, like [add1],[add2] ...')
+
+    mapFArg=fArg[0]
+
+    #print(f'{mapFArg} is mapFArg')
+
+    mapNode=optimize_rec(mapFArg,loadedListElement)
+    lsComp=list_comp(accum,mapNode,storedListElement)
+
+    #print(f'{mapNode} is mapNode')
+    #print(f'{ast.dump(lsComp)} is lsComp')
+    
+    return lsComp
+
+
+
+def map_dict_node(fArg,
+                  accum=ACCUM_LOAD,
+                  loadedDictValue=LOADED_DICT_VALUE):
+
+    if len(fArg) > 1:
+
+        raise Exception(f'Multiple fArgs in maps deprecated.'  
+                        'Use separate maps instead.')
+
+    mapFArg=fArg[0]
+    mapValue=optimize_rec(mapFArg,loadedDictValue)
+
+    return dict_comp(accum,mapValue)
+
+
+def if_list_or_dict(accum,fArg,dict_func,list_func):
+
+    IfExp(test=Call(func=Name(id='is_dict',ctx=Load()),
+                    args=[accum],
+                    keywords=[]),
+          body=dict_func(fArg),
+          orelse=list_func(fArg))
+           
+
+def map_dict_or_list_node(fArg,accum=ACCUM_LOAD):
+
+    if len(fArg) > 1:
+
+        raise Exception(f'Multiple fArgs in maps deprecated.'  
+                        'Use separate maps instead.')
+    
+    return if_list_or_dict(accum,fArg,map_dict_node,map_list_node)
+
+
+def replace_map_names(fArgs,node):
+
+    return [replace_with_name_node_rec(fArg,el) \
+            for (el,fArg) in zip(node.elts,fArgs)]
+                 
+    
 ##############
 # AND FILTER #
 ##############
 
-def optimize_and_filter(fArg):
+def and_filter_f_args(fArgs):
     '''
-    First, tries to optimize all fArgs in the filter.  If not all fArgs can be
-    optimized, it returns a and-filter expression [[fArg1,fArg2,...]].  If all 
-    fArgs can be optimized, it returns a callable which iterates through a list,
-    including only elements for which all fArgs evaluate as True.
+    This is for when we change and filter from [[fArg ...]] to _f(fArg) 
     '''
-    fArg=fArg[0]  # Unpack the list: [[fArg1,...]] => [fArg1,...]
-    optimizedFArg=optimize_f_args(fArg)
-
-    if all_callable(optimizedFArg):
- 
-        return lambda ls: [el for el in ls if all([f(el) for f in optimizedFArg])]
-
-    else:
-
-        return [optimizedFArg]
+    return fArgs[0]
 
 
+def all_node(nodes):
 
-#################
-# EMBEDDED PYPE #
-#################
+    if len(nodes) < 2:
 
-def optimize_embedded_pype(fArg):
-    '''
-    We find if we successfully optimized all fArgs in fArg, and if so we
-    return a single callable from those optimized fArgs.  Otherwise, we
-    return another embedded pype with the partially optimized fArg.  
-    '''
-    optimizedFArg=optimize_f_args(fArg[1:])
+        return nodes
 
-    if all_callable(optimizedFArg):
+    return BoolOp(op=And(),
+                  values=nodes)
 
-        return stack_funcs(optimizedFArg)
+
+def and_filter_list_node(fArgs,
+                         accum=ACCUM_LOAD,
+                         loadedListElement=LOADED_LIST_ELEMENT,
+                         storedListElement=STORED_LIST_ELEMENT):
+
+    fArgs=and_filter_f_args(fArgs)
+    ifAllNode=all_node([optimize_rec(fArg,loadedListElement) for fArg in fArgs])
+
+    #print('printing and filter list node')
+    #print(ifAllNode)
+
+    listComp=list_comp(accum,loadedListElement,storedListElement,ifAllNode)
+
+    #astpretty.pprint(ifAllNode)
+
+    return listComp
+
+
+def and_filter_dict_node(fArgs,
+                         accum=ACCUM_LOAD,
+                         loadedDictValue=LOADED_DICT_VALUE):
+
+    fArgs=and_filter_f_args(fArgs)
+    ifAllNode=all_node([optimize_rec(fArg,loadedDictValue) for fArg in fArgs])
+
+    return dict_comp(accum,loadedDictValue,ifAllNode)
     
-    return _p(optimizedFArg)
+
+def and_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
+
+    return if_list_or_dict(accum,
+                           fArg,
+                           and_fitler_dict_node,
+                           and_filter_list_node)
 
 
-#################
-# OBJECT LAMBDA #
-#################
+def replace_and_filter_names(fArgs,node):
 
-def optimize_object_lambda(fArg):
-    '''
-    We evaluate obj, get the attribute in fArg[1], and then see if we can
-    optimize any of the other fArgs.  If we have failed to optimize fArg[1]
-    and all otherFArgs, we return the object lambda as is.
-    '''
-    firstFArg=optimize_rec(fArg[0])
-    obj=lambda x: call_or_val(x,firstFArg)
-    obj_f=lambda x: getattr(obj(x),fArg[1])
-    otherFArgs=optimize_f_args(f[2:])
+    return [[replace_with_name_node_rec(fArg,el) \
+             for (el,fArg) in zip(node.elts[0].elts,fArgs[0])]]
 
-    if is_callable(firstFArg) and all_optimized(otherFArgs):
-
-        return lambda x: obj_f(x,*[call_or_val(x,f) for f in otherFArgs])
-
-    return (fArg[0],fArg[1],*otherFArgs)
-
-
-##############
-# LIST BUILD #
-##############
-
-def optimize_list_build(fArgs):
-    '''
-    If we successfully optimize everything in the list build, then we return
-    a lambda that runs a list comprehension on it.  Otherwise, we return another
-    list build fArg.
-    '''
-    fArgs=[optimize_rec(fArg) for fArg in fArgs[1:]]
-
-    if all_optimized(fArgs):
-
-        return lambda x: [call_or_val(x,fArg) for fArg in fArgs]
-
-    return _l(*fArgs)
-
-
-##########
-# REDUCE #
-##########
-
-def optimize_reduce(fArgs):
-    '''
-    We want to optimize three types of reduce statements:
-
-    1) [(reduceF,)], where the reduceF acts on the accumulator as a starting value.
-       
-       Equivalent to reduce(reduceF,accum).
-
-    2) [(reduceF,),startVal], where the reduceF acts on the accumulator with a
-       different starting value, possibly an fArg.
-
-       If startVal is an fArg, this is equivalent to:
- 
-       reduce(reduceF,accum,startVal(accum)).
-
-       If startVal is not an fArg, this is equivalent to:
-
-       reduce(reduceF,accum,startVal)
-
-    3) [(reduceF,),startVal,accumExpression], where the reduceF acts on an accumulator,
-       which is first transformed by accumExpression, with a start value.  This is 
-       equivalent to pype(...,accumExpression,[(reduceF,),startFArg],...), or:
-
-       reduce(reduceF,accumExpression(accum),startVal)
-
-       If startVal is an fArg, this is equivalent to:
-
-       reduce(reduceF,accumExpression(accum),startVal(accumExpression(accum)))
-
-    We only return a lambda if:
-
-    1) reduceF is optimizeable to a callable.
-    2) If there is a startFArg, it must be optimized to a callable or not an fArg.
-    3) If there is an accumExpression, it must be optimized to a callable.
-    '''
-    reduceF=optimize_rec(fArgs[0][0])
-    # startFArg is the data structure that accumulates the reduce.
-    startFArg=optimize_rec(fArgs[1]) if len(fArgs) > 1 else None
-    # accumExpression is a transformation applied to accum before
-    # we run the reduce.
-    accumExpression=optimize_rec(fArgs[2]) if len(fArgs) == 3 else None
-
-    if is_callable(reduceF):
-
-        # [(reduceF,)]
-        # reduce(reduceF,accum)
-        if not startFArg:
-
-            return lambda accum: reduce(reduceF,accum)
-
-        if is_callable(startFArg):
-
-            # [(reduceF,),startFArg,accumExpression]
-            # reduce(reduceF,
-            #        accumExpression(accum),
-            #        startFArg(accumExpression(accum)))
-            if accumExpressionCallable:
-
-                return lambda accum: reduce(reduceF,
-                                            accumExpression(accum),
-                                            startFArg(accum))
-
-            # [(reduceF,),startFArg]
-            # reduce(reduceF,
-            #        startFArg(accum))
-            return lambda accum: reduce(reduceF,
-                                        accum,
-                                        startFArg(accum))
-
-        # [(reduceF,),startFArg]
-        # reduce(reduceF,startFArg)
-        elif is_optimized(startFArg):
-
-            return lambda accum: reduce(reduceF,accum,startFArg)
-
-    # Return an fArg for the reduce.
-    return [el for el in [(reduceF,),startFArg,accumExpression] if el]
-
-
-
-'''
-DICTIONARY OPERATIONS
-
-Here, our grand strategy is to take a dictionary, put it into a list of key-value
-pairs, optimize those key-value pairs. If we are successful, then we return a 
-lambda that returns this dict.  Otherwise, we rebuild the original dict.  
-
-We must remember that since lambdas can break the hashing requirements for 
-dictionary keys, we cannot rebuild dicts with optimized lambdas - we must use the 
-original lamtups instead.
-'''
-
-##############
-# DICT BUILD #
-##############
-
-def unpack_and_optimize(fArg):
-    '''
-    Helper function to run delam on the keys of a dict (not permissible with 
-    dictionary comprehentions) and produce a list of optimized key-value pairs.
-    '''
-    unpackedFArg=[(k,v) for (k,v) in fArg.items()]
-    optimizedFArg=[(optimize_rec(k),optimize_rec(v)) for (k,v) in unpackedFArg]
-
-    return unpackedFArg,optimizedFArg
-
-
-def all_pairs_optimized(optimizedFArg):
-    '''
-    Convenience method to go through optimized key-value pairs and ensure they're
-    optimized.
-    '''
-    return all_optimized([k for (k,v) in optimizedFArg]) \
-       and all_optimized([v for (k,v) in optimizedFArg])
-
-
-def rebuild_unoptimized_dict(unpackedFArg,optimizedFArg):
-    '''
-    Otherwise, we rebuild the original fArg, making sure
-    that we re-include lamtups as keys rather than delamm-ed lamtups.  
-    '''
-    return {fArgK if is_lam_tup(fArgK) else optK:optV \
-            for ((fArgK,fArgV),(optK,optV)) in zip(optimizedFarg,unpackedFArg)}
-
-     
-def optimize_dict_build(fArg):
-    '''
-    First, we unpack the dict into key-value pairs.  Then, we optimzie these pairs.
-    If all keys and values are successfully optimized, we return a lambda which
-    computes the dict build.  Otherwise, we rebuild the original fArg, making sure
-    that we re-include lamtups as keys rather than delamm-ed lamtups.  
-    '''
-    unpackedFArg,optimizedFArg=unpack_and_optimize(fArg)
-
-    if all_pairs_optimized(optimizedFArg):
-
-        return lambda x: {call_or_val(x,k):call_or_val(x,v) \
-                          for (k,v) in optimizedFArg}
-
-    return rebuild_unoptimized_dict(optimizedFArg,unpackedFArg)
-    
 
 ###############
-# SWITCH DICT #
+# SWITCH_DICT #
 ###############
 
-def optimize_switch_dict(fArg):
-    '''
-    Similar to optimize_dict_build.  We go through the dictionary, optimizing keys
-    and values.  If all keys and values are optimized (or constant), we return
-    a function that evaluates the switch dict.  Otherwise, we just return the 
-    switch dict with whatever keys or values could be optimized.
-    '''
-    unpackedFArg,optimizedFArg=unpack_and_optimize(fArg)
+def chain_if_else(switchDictList,elseFArg):
+    # Using tail recursion here.
+    if not switchDictList:
 
-    if not all_pairs_optimized(optimizedFArg):
+        return elseFArg
 
-        return rebuild_unoptimized_dict(optimizedFArg,unpackedFArg)
+    condition,statement=switchDictList[0]
 
-    is_in=lambda x: not is_container(x) and x in optimizedFArg
+    return IfExp(test=condition,
+                 body=statement,
+                 orelse=chain_if_else(switchDictList[1:],elseFArg))
     
-    def evl_switch_dict(x):
 
-        evls=[(bool(call_or_val(x,k)),v) for (k,v) in optimizedFArg]
-        evlsTrue=[(k,v) for (k,v) in evls if is_bool(k) and k]
-        v=evlsTrue[-1][1] if evlsTrue else optimizedFArg['else']
+def switch_dict_node(fArg,accum=ACCUM_LOAD):
+    # For now, equality checking in switch dict will not be used.  Too inconvenient to
+    # parse.
+    switchDictList=[(optimize_rec(k,accum),optimize_rec(v,accum)) \
+                    for (k,v) in fArg.items() if k != 'else']
+    elseFArg=optimize_rec(fArg['else'],accum)
+    
+    return chain_if_else(switchDictList,elseFArg)
 
-        return call_or_val(x,v)
 
-    return lambda x: call_or_val(x,optimizedFArg[x]) if is_in(x) \
-                    else evl_switch_dict(x)
+def replace_dict_names(fArgs,nodes):
 
+     nodePairs=zip(nodes.keys,nodes.values)
+
+     return {replace_with_name_node_rec(k,nk):replace_with_name_node_rec(v,nv) \
+             for ((k,v),(nk,nv)) in zip(fArgs.items(),nodePairs)}
+
+
+replace_switch_dict_names=replace_dict_names
+   
 
 ##############
 # DICT ASSOC #
 ##############
 
-def optimize_dict_assoc(fArg):
-    '''
-    We first optimize the keys and fArgs.  If this is successfull, then we build
-    a function d_assoc which executes the dict assoc.  Otherwise, we return the 
-    original dict assoc object.
-    '''
-    keys=optimize_f_args(fArg[1::2])
-    fArgs=optimize_f_args(fArg[2::2])
+def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
 
-    if not all_optimized(keys) nor  all_optimized(fArgs):
+    keys=fArgs[1::2]
+    fArgs=fArgs[2::2]
+    assignList=[]
 
-        return _a(*[val for pair in zip(keys,fArgs) for val in pair])
+    for (key,fArg) in zip(keys,fArgs):
 
-    def dassoc(x):
+        optimizedFArg=optimize_rec(fArg)
+        keyNode=parse_literal(key)
+        indexNode=Index(value=keyNode)
+        assignNode=Assign(targets=[Subscript(value=accum,
+                                             slice=indexNode,
+                                             ctx=Store())],
+                          value=optimizedFArg)
 
-        for key,fArg in zip(keys,fArgs):
-            
-            x[call_or_val(x,key)]=call_or_val(x,fArg)
-            
-            return x
+        assignList.append(assignNode)
 
-    return dassoc
+    return assignList
 
 
-###############
-# DICT DISSOC #
-###############
+def replace_dict_assoc_names(fArgs,node):
 
-def optimize_dict_dissoc(fArgs):
-    '''
-    We try and optimize all elements of a dict dissoc.  If we are successful,
-    we return a function that executes the dict dissoc.  Otherwise, we return
-    the original dict dissoc fArg.
-    '''
-    fArgs=optimize_f_args(fArgs[1:])
+    keys=fArgs[1::2]
+    fArgs=fArgs[2::2]
 
-    if not all_optimized(fArgs):
+    if isinstance(node,List):
 
-        return _d(*fArgs)
+        nodes=node.elts[2::2]
 
-    def dict_dissoc(x):
+    elif isinstance(node,Call):
 
-        for fArg in fArgs:
+        nodes=node.args[1::2]
 
-            del x[call_or_val(x,fArg)]
+    else:
 
-            return x
+        raise Exception(f'unacceptable node type {node} for dict assoc')
 
-    return dict_dissoc
+    nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
+                       for (fArg,n) in zip(fArgs,nodes)]
+
+    #print(f'{nameReplacedFArgs} is nameReplacedFArgs')
+
+    nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
+
+    return _a(*nameReplacedPairs)
 
 
 ##############
 # DICT MERGE #
 ##############
 
-def optimize_dict_merge(fArg):
-    '''
-    We try to optimize the fArg, which we know is a dict.  We do not call optimize_rec
-    on this fArg because we need to confirm that the dictionary is fully optimized.
-    '''
-    optimizedDict=optimize_rec(fArg[1])
+DICT_NODE_STORE=Name(id='dict_node',ctx=Store())
+DICT_NODE_LOAD=Name(id='dict_node',ctx=Load())
+DICT_KEY_LOAD=Name(id='d_key',ctx=Load())
+DICT_KEY_STORE=Name(id='d_key',ctx=Store())
+DICT_VAL_LOAD=Name(id='d_val',ctx=Load())
+DICT_VAL_STORE=Name(id='d_val',ctx=Store())
 
-    if not is_dict(optimizedDict):
+def dict_merge_node(fArgs,
+                    accum=ACCUM_LOAD,
+                    dictNodeStore=DICT_NODE_STORE,
+                    dictNodeLoad=DICT_NODE_LOAD,
+                    dictKeyLoad=DICT_KEY_LOAD,
+                    dictKeyStore=DICT_KEY_STORE,
+                    dictValLoad=DICT_VAL_LOAD,
+                    dictValStore=DICT_VAL_STORE,
+                   ):
 
-        raise Exception('accidentally did a dict_merge on a switch dict')
+    if len(fArgs) > 2:
 
-    unpackedFArg,optimizedFArg=unpack_and_optimize(optimizedDict)
+        raise Exception(f'fArgs {fArgs} is too long, for now optimizer '
+                        'can only merge one dictionary at a time')
 
-    if not all_pairs_optimized(optimizedFArg):
+    fArg=fArgs[1]
+    assignList=[Assign(targets=[dictNodeStore],
+                      value=optimize_rec(fArg,accum))]
+    dictValIndex=Index(value=dictKeyLoad)
+    assignToAccum=Assign(targets=[Subscript(value=accum,
+                                           slice=dictValIndex,
+                                           ctx=Store())],
+                         value=dictValLoad)
+    iteration=For(target=Tuple(elts=[dictKeyStore,
+                                     dictValStore],
+                               ctx=Store()),
+                  iter=Call(func=Attribute(value=dictNodeLoad,
+                                           attr='items',
+                                           ctx=Load()),
+                            args=[],
+                            keywords=[]),
+                  body=[assignToAccum],
+                  orelse=[])
 
-        return _m(rebuild_unoptimized_dict(optimizedFArg,unpackedFArg))
+    assignList.append(iteration)
 
-    def dict_merge(x):
-
-        for (k,v) in fArg.items():
-
-            x[call_or_val(x,k)]=call_or_val(x,v)
-
-        return x
-
-    return dict_merge
+    return assignList
 
 
-'''
-MAIN OPTIMIZATION
 
-Here, we are making extensive use of AST syntax trees.
-'''
-#############################
-# MAIN OPTIMIZATION HELPERS #
-#############################
+def replace_dict_merge_names(fArgs,node):
+    # FIX THIS
 
-def hash_optimized(evls):
-    '''
-    This is to build names for callables generated from optimize_rec.  We hash
-    whatever fArgs we have found, and return them in the format optimize_HASH.
-    This is for insertion into the namespace.  If, in the process of modifying the 
-    AST, we build a callable and don't include the name of the callable and the callable
-    in the namespace, the compilation will fail.
-    '''
-    m=hashlib.sha224()
+    fArgs=fArgs[1:]
 
-    if is_list(evls):
+    if isinstance(node,List):
 
-        for evl in evls:
+        nodes=node.elts[2::2]
 
-            m.update(str(evl).encode('utf-8'))
+    elif isinstance(node,Call):
+
+        nodes=node.args[1::2]
 
     else:
 
-        m.update(str(evls).encode('utf-8'))
+        raise Exception(f'unacceptable node type {node} for dict assoc')
 
-    return f'optimized_{m.hexdigest()}'
+    nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
+                       for (fArg,n) in zip(fArgs,nodes)]
+
+    #print(f'{nameReplacedFArgs} is nameReplacedFArgs')
+
+    nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
+
+    return _a(*nameReplacedPairs)
 
 
-def fuse_pype_args(pypeArgs):
+##########################
+# HELPERS FOR LIST FARGS #
+##########################
+
+def get_nodes_for_list_f_arg(node):
+
+    if isinstance(node,List):
+
+        return node.elts[1:]
+
+    elif isinstance(node,Call):
+
+        return node.args
+
+    else:
+
+        raise Exception(f'unacceptable node type {node} for dict dissoc')
+
+def build_list_f_arg(fArgs,node,f):
+
+    fArgs=fArgs[1:]
+    nodes=get_nodes_for_list_f_arg(node)
+    nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
+                       for (fArg,n) in zip(fArgs,nodes)]
+
+    return f(*nameReplacedFArgs)
+
+
+###############
+# DICT DISSOC #
+###############
+
+def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
+
+    fArgs=fArgs[1:]
+    dissocList=[]
+
+    for fArg in fArgs:
+
+        optimizedFArg=optimize_rec(fArg,accum)
+        index=Index(value=optimizedFArg)
+        subscript=Subscript(value=accum,
+                            slice=index,
+                            ctx=Del()
+                           )
+        delNode=Delete(targets=[subscript])
+
+        dissocList.append(delNode)
+
+    return dissocList
+
+   
+def replace_dict_dissoc_names(fArgs,node):
+
+    return build_list_f_arg(fArgs,node,_d)
+    
+
+##############
+# LIST BUILD #
+##############
+
+def list_build_node(fArgs,accum=ACCUM_LOAD):
+
+    fArgs=fArgs[1:]
+    optimizedFArgs=[optimize_rec(fArg,accum) for fArg in fArgs]
+    
+    return List(elts=optimizedFArgs,
+                ctx=Load())
+
+
+def replace_list_build_names(fArgs,node):
+
+    return build_list_f_arg(fArgs,node,_l)
+
+
+##############
+# DICT BUILD #
+##############
+
+def dict_build_node(fArg,accum=ACCUM_LOAD):
+
+    #print('&'*30)
+    #print('dict_build_node')
+    #pp.pprint(fArg)
+    #print([optimize_rec(v,accum) for v in list(fArg.values())])
+
+    keys=[optimize_rec(k,accum) for k in fArg.keys()]
+    vals=[optimize_rec(v,accum) for v in fArg.values()]
+
+    #print('keys:')
+    #print([ast.dump(k) for k in keys])
+    #print('values:')
+    #print([v for v in vals])
+
+    return Dict(keys=keys,values=vals,ctx=Load())
+
+
+replace_dict_build_names=replace_dict_names
+
+
+#################
+# EMBEDDED PYPE #
+#################
+
+def embedded_pype_chain(fArgs,accum):
+
+    if len(fArgs) == 1:
+
+        return optimize_rec(fArgs[0],accum)
+
+    return optimize_rec(fArgs[0],embedded_pype_chain(fArgs[1:],accum))
+
+    
+def embedded_pype_node(fArgs,accum=ACCUM_LOAD):
+
+    fArgs=fArgs[1:]
+    
+    #print('&'*30)
+    #print('embedded_pype_node')
+    #print(fArgs)
+    #pp.pprint(fArg)
+    #print([optimize_rec(v,accum) for v in list(fArg.values())])
+
+    fArgs.reverse()
+
+    pypeChain=embedded_pype_chain(fArgs,accum)
+
+    #astpretty.pprint(pypeChain)
+
+    #print('keys:')
+    #print([ast.dump(k) for k in keys])
+    #print('values:')
+    #print([v for v in vals])
+
+    return pypeChain
+
+
+def replace_embedded_pype_names(fArgs,node):
+
+    #print('&'*30)
+    #print('replace_embedded_pype_names')
+    
+    fArgs=fArgs[1:]
+    nodeArgs=node.args
+
+    #print(f'{fArgs} is fArgs')
+    #print(f'{nodeArgs} is nodeArgs')
+
+    replaced=[replace_with_name_node_rec(fArg,n) \
+              for (fArg,n) in zip(fArgs,nodeArgs)]
+    
+    #print(f'{_p(*replaced)} is _p(*replaced)')
+
+    return _p(*replaced)
+
+
+#############
+# AST NAMES #
+#############
+
+def is_ast_name(node):
+
+    return isinstance(node,Name) and node.id not in ALL_GETTER_IDS
+
+
+def ast_name_node(node,accumNode):
+
+    return node
+
+
+def replace_ast_name(fArg,node):
+
+    #print('replace_ast_name')
+
+    return node
+
+
+OPTIMIZE_PAIRS=[(is_callable,callable_node),
+                (is_ast_name,ast_name_node),
+                (is_mirror,mirror_node),
+                (is_index_arg,index_arg_node),
+                (is_lambda,lambda_node),
+                (is_slice,slice_node),
+                (is_index,index_node),
+                (is_map,{list:map_list_node,
+                         dict:map_dict_node,
+                         'default':map_dict_or_list_node}),
+                (is_and_filter,{list:and_filter_list_node,
+                                dict:and_filter_dict_node,
+                                'default':and_filter_list_or_dict_node}),
+                (is_switch_dict,switch_dict_node),
+                (is_dict_assoc,dict_assoc_node),
+                (is_dict_dissoc,dict_dissoc_node),
+                (is_dict_merge,dict_merge_node),
+                (is_list_build,list_build_node),
+                (is_dict_build,dict_build_node),
+                (is_embedded_pype,embedded_pype_node),
+               ]
+
+REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
+               (is_map,replace_map_names),
+               (is_and_filter,replace_and_filter_names),
+               (is_index,replace_index_names),
+               (is_switch_dict,replace_switch_dict_names),
+               (is_dict_assoc,replace_dict_assoc_names),
+               (is_dict_dissoc,replace_dict_dissoc_names),
+               (is_list_build,replace_list_build_names),
+               (is_dict_build,replace_dict_build_names),
+               (is_embedded_pype,replace_embedded_pype_names),
+              ]
+
+
+def assign_node_to_accum(node,accum=ACCUM_STORE):
+
+    return Assign(targets=[accum],value=node)
+
+
+from inspect import currentframe
+
+def get_name(fArg):
     '''
-    This takes the optimized arguments of pype, being [accum,fArg1,fArg2,fArg3].
-    We group the fArgs by whether they are callable.  Every contiguous group of 
-    callable fArgs gets turned into a single callable and put into newPypeArgs with
-    its new name, computed by hash_optimized.  Otherwise, we just insert the fArg 
-    with a False.  pypeArgs has the format [(False,AST(accum)),(identifier1,callable1),
-    (False,AST(fArg2))...], where 'False' indicates that the tuple is either the accum
-    or an unoptimized fArg and AST indicates the AST representation fo the pype arg.
+    https://stackoverflow.com/questions/18425225/getting-the-name-of-a-variable-as-a-string/18425523
     '''
-    newPypeArgs=[pypeArgs[0]] # This is already a tuple, (False,accum).
+    callersLocalVars=currentframe().f_back.f_locals.items()
+    varNames=[varName for (varName,varVal) in callersLocalVars if varVal is fArg]
 
-    for isCallable,g in groupby(pypeArgs[1:],lambda x:is_callable(x[1])):
+    if not varNames:
 
-        if isCallable:
+        return varNames
 
-            # x is a tuple (identifier,fArg), where identifier is False if the fArg
-            # was not successfully optimized.
-            funcs=[x[1] for x in g]
-            # Identifier will be the hash of all the identifiers for the optimized
-            # functions.
-            identifier=hash_optimized([x[0] for x in g])
-
-            # stack_funcs wraps contiguous callables in a reduce.
-            newPypeArgs.append((identifier,stack_funcs(funcs)))
-
-        else:
-
-            newPypeArgs.extend(grp)
-
-    return newPypeArgs
+    return varNames[0]
 
 
-def convert_pype_args_to_optimized(args):
-    '''
-    We take a first pass at the pype args, consisitning of [AST(accum),AST(fArg1),
-    AST(fArg2),...], and produce [(False,AST(accum)),(identifier1,callable1),
-    (False,fArg2)...], where 'False' indicates that the element represents the accum
-    or an unsuccessfully optimized pype arg.
-    '''
-    newPypeArgs=[(False,args[0])]
+def parse_literal(fArg):
 
-    for fArg in args[1:]:
+    if fArg is None:
 
-        # We evaluate the expression into a Python-interpretable fArg.
-        expr=Expression(fArg)
-        evl=eval(compile(expr,filename='<ast>',mode='eval'))
-        # Then we try and optimize it.
-        optimized=optimize_rec(evl)
+        return None
 
-        # If we are successful, append its identifier and the function.
-        if is_callable(optimized):
+    if isinstance(fArg,str):
 
-            identifier=hash_optimized(evl)
+        return Str(s=fArg)
 
-            newPypeArgs.append((identifier,optimized))
+    if isinstance(fArg,int) or isinstance(fArg,float):
 
-        # Otherwise, just put 'False' and the original fArg.
-        else:
+        return Num(n=fArg)
 
-            newPypeArgs.append((False,fArg))
+    if isinstance(fArg,dict):
 
-    return newPypeArgs
-
-
-def optimize_pype_args(args,namespace):
-    '''
-    This is the meat of the optimization.  We presume that args are the args of a 
-    pype call, in the format [AST(accum),AST(fArg1),AST(fArg2),...], where AST
-    indicates an AST representation.  We want to build a new list of args for the 
-    pype call, consisting of [AST(accum),AST(callable1),AST(fArg) ...] where callable1
-    is a successfully optimized fArg, and the updated namespace..
-    '''
-    # We don't want to optimize the AST for the accum.
-    newPypeArgs=convert_pype_args_to_optimized(args)
-    newPypeArgs=fuse_pype_args(newPypeArgs)
-    # Now, let's take our Pype args, which will either be (False,AST(fArg or accum)),
-    # if the optimization was unsuccessful, or (identifier,callable1) if the
-    # optimization was.   
-    finalPypeArgs=[]
-
-    for (identifier,fArg) in newFArgs:
-
-        # The optimization was unsuccessful, meaning we just add AST(fArg or accum)
-        # to finalPypeArgs.
-        if not identifier:
-
-            finalPypeArgs.append(fArg)
+        keyValuePairs=[(parse_literal(k),parse_literal(v)) for (k,v) in fArg.items()]
         
-        # The optimization was successful, which means we build an AST Name expression
-        # for the new callable, and insert that callable into the namespace.
+        return Dict( keys=[k for (k,v) in keyValuePairs],
+                     values=[v for (k,v) in keyValuePairs],
+                     ctx=Load())
+
+    if isinstance(fArg,list):
+
+        ls=List( elts=[parse_literal(el) for el in fArg],
+                 ctx=Load())
+        #print(dump(ls))
+
+        return ls
+
+    if isinstance(fArg,set):
+
+        return Set( elts=[parse_literal(el) for el in fArg],
+                    ctx=Load())
+
+    return Name(id=get_name(fArg),ctx=Load())
+
+
+def optimize_rec(fArg,accumNode=ACCUM_LOAD,evalType=None):
+
+    #print('>'*30)
+    #print('optimize_rec')
+    #print(fArg)
+
+    fArg=delam(fArg)
+    optimizers=[opt_f for (evl_f,opt_f) in OPTIMIZE_PAIRS if evl_f(fArg)]
+    evalType=type(fArg) if evalType is None else evalType
+
+    if not optimizers:
+
+        return parse_literal(fArg)
+
+    optimizer=optimizers[-1]
+
+    if is_dict(optimizer):
+
+        if evalType in optimizer:
+
+            optimizer=optimizer[evalType]
+
         else:
 
-            optimizedNode=Name(id=identifier,ctx=Load())
-            namespace[identifier]=fArg            
+            optimizer=optimizer['default']
 
-            finalPypeArgs.append(optimizedNode)
+    #print('returning:')
+    #print(optimizer(fArg,accumNode))
 
-    return finalPypeArgs,namespace
+    return optimizer(fArg,accumNode)
+
+
+
+def optimize_f_args(fArgs,fArgTypes,startNode):
+
+    assignList=[assign_node_to_accum(startNode)]
+
+    for fArg,fArgType in zip(fArgs,fArgTypes):
+
+        opt=optimize_rec(fArg,ACCUM_LOAD,fArgType)
+        
+        if is_list(opt):
+
+            assignList.extend(opt)
+
+        else:
+
+            assignNode=assign_node_to_accum(opt)
+
+            assignList.append(assignNode)
+
+    #print('*'*30)
+    #print('optimize_f_args')
+    #print(f'{fArgs} is fArgs')
+    #print([dump(a) for a in assignList])
+
+    return assignList
+
+
+def is_pype_return(body,aliases):
+
+    return isinstance(body[-1],Return) \
+        and isinstance(body[-1].value,Call)\
+        and body[-1].value.func.id in aliases
 
 
 def aliases_for_pype(glbls):
@@ -903,247 +1056,446 @@ def aliases_for_pype(glbls):
 
     from pype import pype as p
     '''
+    #print(f'{p} is pype')
+    #print(f'{pype_f} is pype')
+
     return set([alias for (alias,f) in glbls.items() \
-                if glbls[alias] == glbls['pype'] \
+                if glbls[alias] == pype_f \
                 and is_callable(f)])
 
+
+def pype_with_f_arg_and_tree(accum,*fArgs):
+
+    #print('='*30)
+    #print('pype_with_f_arg_and_tree')
+    #successiveFArgs=[list(fArgs[:i+1]) for i in range(len(fArgs))]
+    successiveEvals=[]
     
+    for fArg in fArgs:
 
-#########################
-# PYPE ARG NODE VISITOR #
-#########################
+        accum=pype_f(accum,fArg)
 
-class PypeArgOptimizer(NodeVisitor):
-    '''
-    This finds pype calls in the AST, identified by pype aliases, and runs optimizations
-    on their arguments.
+        #print('accum is')
+        #pp.pprint(accum)
 
-    I use NodeVisitor instead of NodeTransformer because I had a few issues which I
-    didn't want to deal with.
-    '''
-    def __init__(self,pypeAliases):
-        '''
-        We need pypeAliases to identify the pype calls in the syntax tree.
-        '''
-        self.namespace={}
-        self.pypeAliases=pypeAliases
+        successiveEvals.append(deepcopy(accum))
 
+    #successiveEvals=[pype_f(accum,*successive) for successive in successiveFArgs]
+    fArgTypes=[type(evl) for evl in successiveEvals]
+
+    #print('successiveEvals')
+    #pp.pprint(successiveEvals)
+    #print(f'{fArgTypes} is fArgTypes')
+
+    return successiveEvals[-1],list(fArgs),fArgTypes
+
+
+IMPORT_PYPE=ImportFrom(module='new_my_optimize', 
+                       names=[alias(name='pype_with_f_arg_and_tree', 
+                                    asname=None)])
+
+class PypeCallReplacer(NodeVisitor):
+
+    def __init__(self,aliases):
+
+        self.pypeAliases=aliases
+        self.accumNode=None
+        self.fArgsNode=None
 
     def visit_FunctionDef(self,node):
-        '''
-        Since this is called inside a decorator, optimize, we want to get rid of 
-        that decorator's information in the AST.
-        '''
+
+        args=node.args.args
+        body=node.body
+
+        #print(f'{self.pypeAliases} is pype aliases')
+
+        if is_pype_return(body,self.pypeAliases):
+
+            node.body[-1].value.func.id='pype_with_f_arg_and_tree'
+            #print('replacing pype call')
+            node.body=[IMPORT_PYPE]+node.body
+            self.accumNode=body[-1].value.args[0]
+            self.fArgsNodes=body[-1].value.args[1:]
+
         node.decorator_list=[]
-        
         node=fix_missing_locations(node)
 
         self.generic_visit(node)
 
 
-    def visit_Call(self,node):
-        '''
-        When we find a pype call inside the function, we perform the optimization on
-        the pype args, and update the namespace.  We deal with two situations:
+class PypeTreeReplacer(NodeVisitor):
 
-        1) In the case where we've reduced the pype args to the accum and a single 
-        callable, as in [AST(accum),AST(callable1)], we don't need pype anymore, so
-        we just replace the pype call with AST(callable1(accum)).
+    def __init__(self,fArgAssigns,aliases):
 
-        2) Otherwise, we keep keep the pype call, as in AST(pype(accum,fArg1,callable1,
-        ...).
-        '''
-        if node.func.id in self.pypeAliases:
+        self.fArgAssigns=fArgAssigns
+        self.pypeAliases=aliases
 
-            newPypeArgs,self.namespace=optimize_pype_args(node.args,self.namespace)
-        
-            # newPypeArgs[1].id in self.namespace means that this is a callable that
-            # has been generated by optimize_pype_args, and it is the only callable.
-            if len(newPypeArgs) == 2 and newPypeArgs[1].id in self.namespace:
-
-                optimizedName=newPypeArgs[1] # We mean the ast.Name object.
-                # We swap out the pype call with the optimized function.
-                node.func=optimizedName
-                # And the accum becomes the only argument to this function.
-                node.args=[newFArgs[0]]
-                node=fix_missing_locations(node)
-
-            # Otherwise, keep the pype call with the modified fArgs.
-            else:
-
-                node.args=newPypeArgs
-                node=fix_missing_locations(node)
-        
-        self.generic_visit(node)
-
-###########
-# INLINER #
-###########
-
-def is_inlineable(args,body):
-    '''
-    Investigates the arguments and body of the FuncDef AST to see if:
     
-    1) There is no code between the return statement and the function definition.
-    2) The returned value is a function call with a single argument.
-    3) The id of the function argument matches the id of the argument in the returned
-       function call.  
-    '''
-    return len(args) == 1 \
-        and len(body) == 1 \
-        and isinstance(body[0],Return) \
-        and len(body[0].value.args) == 1 \
-        and isinstance(body[0].value.args[0],Name) \
-        and args[0].arg == body[0].value.args[0].id
-
-
-class Inliner(NodeVisitor):
-    '''
-    If, in our pype optimization, we end up with a function which is inlineable,
-    such as:
-
-    def f1(x):
-     return pype(x,callable1)
-
-    We instead just want to turn this into callable1.  The arguments of f1 and the
-    accum of the pype call match, there is only one callable in the fArgs, so let's
-    just make f1 callable1.  This can give us a 10 millisecond improvement in 
-    performance for large arrays (30k ...).
-    '''
-    def __init__(self,namespace):
-        '''
-        We need the namespace to reference the function.  If we find an inlineable
-        function, we put it in self.inlined_function.
-        '''
-        self.namespace=namespace
-        self.inlined_function=None
-
     def visit_FunctionDef(self,node):
-        '''
-        Looks at the function from the FunctionDef, and determines if there is 
-        an inlineable function embedded in it.  If so, it populates 
-        self.inlined_function.
-        '''
-        args=node.args.args
+
         body=node.body
+        
+        if is_pype_return(body,self.pypeAliases):
+        
+            node.body=body[:-1]+self.fArgAssigns+RETURN_ACCUM
 
-        if is_inlineable(args,body):
-
-            # We found an inlineable function.
-            inlinedFunctionID=body[0].value.func.id
-            self.inlined_function=self.namespace[inlinedFunctionID]
+        node.decorator_list=[]
+        node=fix_missing_locations(node)
 
         self.generic_visit(node)
 
+    
 
-############################
-# MAIN OPTIMIZER DECORATOR #
-############################
-
-def recompile(tree,mainFunctionName,globalNamespace,localNamespace):
+def replace_with_name_node_rec(fArg,node):
     '''
-    This takes a tree for a function identified by mainFunctionName, and
-    recompiles it.  This function should be found in the localNamespace,
-    so we return the compiled function there.
+    When we call pype_with_f_arg_and_tree, there is a problem - in the fArg,
+    variables in the scope of the function are actually their literals.  So
+    for example, if we had an fArg _+x, and x=1 on the first evaluation, we
+    get _+1.  The function is then parsed accordingly.
+
+    What we want to do is take the first fArg of the function, and replace
+    any literal with a Name node.  This will encourage the recompiler to include
+    the variable name instead of the first evaluated literal.
     '''
-    c=compile(tree,filename='<ast>',mode='exec')
+    #print('='*30)
+    #print('replace_with_name_node')
 
-    exec(c,globalNamespace,localNamespace)
+    #print('node is')
+    #print(node)
 
-    return localNamespace[mainFunctionName]
+    #print('fArg is')
+    #print(fArg)
+
+    isLamTup=is_lam_tup(fArg)
+
+    if is_ast_name(node) \
+       and not is_f_arg(fArg) \
+       and not isLamTup \
+       and not isinstance(fArg,PypeVal):
+
+        #print('name node is')
+        #astpretty.pprint(node)
+
+        return node
+
+    fArg=delam(fArg)
+    #pp.pprint(f'fArg is {fArg}')
+    #astpretty.pprint(node)
+    evls=[f(fArg,node) for (evl_f,f) in REPLACE_PAIRS if evl_f(fArg)]
+    fArg=evls[-1] if evls else fArg
+    #print('replaced:')
+    #pp.pprint(fArg)
+    #print('='*30)
+
+    if isLamTup:
+
+        fArg=LamTup(fArg)
+
+    return fArg
 
 
-def optimize(func):
-    '''
-    Intended to be used as a decorator, but can be called directly on the function.
+def replace_with_name_node(fArgs,nodes):
 
-    Our grand strategy is:
+    return [replace_with_name_node_rec(fArg,node) \
+            for (fArg,node) in zip(fArgs,nodes)]
 
-    1) If func is a builtin function, return it.
-    2) If func has no source, return it.
-    3) Extract the source from func.
-    4) Get an AST from the source.
-    5) Run a PypeArgOptimizer on it.
-    4) If we can extract an inlined function, return the inlined function.
-    5) Otherwise, rebuild the tree and return the recompiled function.
-    '''
-    # We don't want to even try running this on builtin functions.
-    if isinstance(func,types.BuiltinFunctionType):
 
-        return func
+FUNCTION_CACHE={}
 
-    # Let's see if the function has source code ...
-    try:
+def optimize(pype_func):
 
-        source=getsource(func)
+    originalFuncName=pype_func.__name__
+    glbls=pype_func.__globals__
+    aliases=aliases_for_pype(glbls)
+    src=getsource(pype_func)
+    moduleName=pype_func.__module__
+    mod=__import__(moduleName)
+    glbls[moduleName]=mod
 
-    # No?  Just return the function
-    except Exception as e:
+    #print(f'{aliases} is aliases')
 
-        return func
+    #pp.pprint(glbls)
+    
+    @wraps(pype_func)
+    def optimized(*args):
 
-    # Parse it into an AST.
-    tree=parse(source)
-    # Grab our pype aliases.
-    aliases=aliases_for_pype(func.__globals__)
-    # And let's optimize.
-    pypeArgOpt=PypeArgOptimizer(aliases)
+        if originalFuncName in FUNCTION_CACHE:
 
-    pypeArgOpt.visit(tree)
+            return FUNCTION_CACHE[originalFuncName](*args)
 
-    # Let's see if we can inline the function.
-    inline=Inliner(pypeArgOpt.namespace)
+        '''
+        First pass, replace pype call with pype_with_f_arg_and_tree, so we
+        can get the fArgs without having to explicitly parse them from the 
+        tree.
+        '''
+        tree=parse(src)
+        callReplacer=PypeCallReplacer(aliases)
+        recompiledReplacerNamespace={}
 
-    inline.visit(tree)
+        #print('*'*30)
+        #print('parse tree before')
+        ##print(f'{originalFuncName} in globals: {glbls[originalFuncName]}')
+        #astpretty.pprint(tree)
+        #print('*'*30)
 
-    if inline.inlined_function is not None:
+        callReplacer.visit(tree)
 
-        return inline.inlined_function
+        #print('*'*30)
+        #pp.pprint(optimize.__globals__)
+        #print('*'*30)
 
-    # Otherwise, let's just returned the recompiled tree.
-    recompiled_f=recompile(tree,
-                           func.__name__,
-                           func.__globals__,
-                           pypeArgOpt.namespace)
+        exec(compile(tree,
+                     filename='<ast>',
+                     mode='exec'),
+             glbls,
+             recompiledReplacerNamespace)
 
-    return recompiled_f
+        recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
+        # print(recompiled_pype_func(*args))
+        v,fArgs,fArgTypes=recompiled_pype_func(*args)
+        '''
+        Second pass, we find anywhere where the pype expression has a reference
+        to a variable in the scope of the function, and replace it with a Name.
+        Otherwise, it gets evaluated as a literal.
+        '''
+        if callReplacer.fArgsNodes is not None:
 
+            #print('fArgs is')
+            #pp.pprint(fArgs)
+            #print('callReplacer.fArgsNodes is ')
+            #print(callReplacer.fArgsNodes)
+
+            fArgs=replace_with_name_node(fArgs,
+                                         callReplacer.fArgsNodes)
+            
+            #print('fArgs With Replaced Name')
+            #pp.pprint(fArgs)
+        '''
+        Third pass, we parse the original source and convert the original 
+        returned pype call into fArg calls.
+        '''
+        replaceTree=optimize_f_args(fArgs,fArgTypes,callReplacer.accumNode)
+        #print(f'{replaceTree} is replaceTree')
+        recompiledReplacerNamespace={}
+        tree=parse(src)
+        treeReplacer=PypeTreeReplacer(replaceTree,aliases)
+
+        treeReplacer.visit(tree)
+
+        print('*'*30)
+        print('parse tree after')
+        astpretty.pprint(tree)
+        #pp.pprint(astunparse.dump(tree))
+
+        exec(compile(tree,
+                     filename='<ast>',
+                     mode='exec'),
+             glbls,
+             recompiledReplacerNamespace)
+
+        #pp.pprint(recompiledReplacerNamespace)
+
+        recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
+        '''
+        This is extremely dangerous, but the alternative is to add a flag to the
+        function, checking if it's been compiled.  What we are doing here is
+        taking the global namespace of pype_func, and replacing that pype_func with
+        recompiled_pype_func, so that any calls to pype_func will automatically call
+        recompiled_pype_func.
+        '''
+
+        FUNCTION_CACHE[originalFuncName]=recompiled_pype_func
+
+        #glbls[originalFuncName]=recompiled_pype_func
+        #setattr(mod,originalFuncName,recompiled_pype_func)
+
+        #print(f'successfully recompiled {recompiled_pype_func}')
+        #print(f'recomiled {originalFuncName} in globals: {glbls[originalFuncName]}')
+        #print(f'{pype_func.__module__} is module')
+        #print('*'*30)
+
+        '''
+        Still, we don't want to waste the first function call, so we return the value
+        of the first function call.  
+        '''
+        return v
+
+    return optimized
+
+
+def time(func):
+
+    originalFuncName=func.__name__
+
+    def timed(*args):
+
+        t0=tm.time()
+        v=func(*args)
+        #print(f'time to run {originalFuncName}: {tm.time() - t0}')
+
+        return v
+
+    return timed
+
+
+def concat(ls):
+
+    return ls+[0]
+
+def sm(x,y): return x+y
 
 '''
-OPTIMIZE PAIRS
-
-This global variable is essential for optimize_rec.  Notice that every callable can
-be optimized using optimize.  This means that placing the optimize decorator on any
-function recursively optimizes all pype calls in that function or any callable in
-that function.  So, for example, if I had:
-
-def sm(tup):
- return pype(tup,_0+_1)
-
 @optimize
 def calc(ls):
- return pype(ls,(zip,_,_[1:]),[sm])
 
-both calc and sm would be optimized.  
+    return p(ls,
+             concat,
+             concat,
+             (sm,_0,_1),
+            )
 
-I am hoping to add tuples to this as I continue to optimize different fArg types.
-Ideally, I would like all of pype to be optimized, so that the optimize decorator
-would be redundant.  The pype interpeter would be used for testing and debugging only.
+
+def add1(x): return x+1
+
+def calc2(ls):
+
+    return p(ls,
+             concat,
+             concat,
+             [add1])
+
+@optimize
+def calc3(dct):
+
+    return p( dct,
+              [add1])
+@optimize
+def calc4(ls):
+
+    return p( ls,
+              [[_ > 5,_ < 10]])
+
+@optimize
+def calc5(n):
+
+    return p( n,
+              {_ > 1: "greater than 1",
+               _ < 0: "negative",
+               'else': "not greater than 1"})
+@optimize
+def calc6(ls):
+
+    x=3
+
+    return p( ls,
+              _[1:][1],
+              _+x)
+@optimize
+def calc7(ls):
+
+    x=3
+
+    return p(ls,
+             [_+x])
+
+@optimize
+def calc8(ls):
+
+    x=3
+
+    return p(ls,
+             [[_>x]])
+
+
+@optimize
+def calc9(ls):
+
+    x=1
+
+    return p(ls,
+             _[x])
+
+@optimize
+def calc10(dct):
+
+    s='whatever'
+
+    return p(dct,
+             _a('length',s))
+@optimize
+def calc11(dct):
+
+    lenKey=1
+    s='whatever'
+
+    return p(dct,
+             _a('length',s),
+             _d(lenKey))
+
+@optimize
+def calc12(ls):
+
+    return p(ls,
+             (zip,_,_[1:]),
+             [_l(_0,_1)],
+            ) 
+
+from pype.vals import lenf
+@optimize
+def calc13(ls):
+
+    v=[1]
+
+    return p( ls,
+              {'el':v*lenf})
 '''
-OPTIMIZE_PAIRS=[(is_callable,optimize),
-                (is_mirror,optimize_mirror),
-                (is_index_arg,optimize_index_arg),
-                (is_lambda,optimize_lambda),
-                (is_index,optimize_index),
-                (is_map,optimize_map),
-                (is_and_filter,optimize_and_filter),
-                (is_implicit_dict_build,optimize_dict_build),
-                (is_switch_dict,optimize_switch_dict),
-                (is_embedded_pype,optimize_embedded_pype),
-                (is_object_lambda,optimize_object_lambda),
-                (is_dict_assoc,optimize_dict_assoc),
-                (is_dict_dissoc,optimize_dict_dissoc),
-                (is_list_build,optimize_list_build),
-                (is_reduce,optimize_reduce),
-             ]
 
+import numpy as np
+from pype.helpers import *
+import pype.helpers
+
+def sm_ls(ls):
+
+    return sum(ls)
+
+def another_dict(dct):
+
+    return {'len':len(dct)}
+
+@optimize
+def calc14(dct):
+
+    return p( dct,
+              _m(another_dict),
+              #dct_items,
+              #{'keys':[_0],
+              # 'vals':_p([_1],
+              #           [_a('this',3)],
+              #          )},
+            )
+
+# print(calc4({1:2,3:4,8:9,7:9.5,10:11}))
+
+if __name__=='__main__':
+
+    #pass
+    #print(calc([1]))
+    #print(calc([2]))
+    #print(calc3([2,4]))
+    #print(calc3([2,4]))
+    #print(calc6([[1,2],3,4]))
+    #print(calc7([1,2,4,5]))
+    #print(calc8([1,2,4,5]))
+    #print(calc8([1,2,4,5]))
+    #print(calc9([1,2,4,5]))
+    #print(calc9([1,2,4,5]))
+    #print(caloc10({1:2,4:5}))
+    #print(calc10({1:2,4:5}))
+    #print(calc11({1:2,4:5}))
+    #print(calc11({1:2,4:5}))
+    #print(calc12([1,2,3,4,5,6]))
+    #print(calc12([1,2,3,4,5,6])) 
+    #print(calc13([[1,2],[3,4],[5,6]])) 
+    #print(calc13([[1,2],[3,4],[5,6]])) 
+    print(calc14({'a':1,'b':2,'c':3}))
+    print(calc14({'a':1,'b':2,'c':3}))

@@ -9,6 +9,15 @@ from itertools import takewhile,product
 from pype.vals import Quote,LamTup,PypeVal,Getter,delam
 import numpy as np
 import sys
+import pprint as pp
+
+###########
+# LOGGING #
+###########
+
+PYPE_LOGGING={'timing':False,
+              'threshold':0.1,
+             }
 
 #################
 # TYPE CHECKING #
@@ -63,7 +72,17 @@ _j=Getter('_j_index_')
 _k=Getter('_k_index_')
 _l=Getter('_l_index_')
 FOR_ARG_DICT={k:i for (i,k) in enumerate([_i,_j,_k,_l])}
-
+ALL_GETTER_IDS=set(['_',
+                    '__',
+                    '_0',
+                    '_1',
+                    '_2',
+                    '_3',
+                    '_last',
+                    '_i',
+                    '_j',
+                    '_k',
+                    '_l'])
 ARGS='pype_args'
 embedded_pype='embedded_pype'
 
@@ -77,6 +96,7 @@ l='BUILD_LS'
 append='LIST_APPEND'
 concat='LIST_CONCAT'
 while_loop='WHILE_LOOP'
+do='FARG_DO'
 
 ###########
 # HELPERS #
@@ -179,6 +199,7 @@ def eval_callable(accum,fArg):
 def is_map(fArg):
 
     return is_list(fArg) \
+        and len(fArg) > 0 \
         and all([is_f_arg(f) for f in fArg])
 
 #import pprint as pp
@@ -222,7 +243,7 @@ def is_reduce(fArg):
     #print('is_f_arg {}'.format(is_f_arg(fArg[0][0])))
 
     return is_list(fArg) \
-        and (len(fArg) == 1 or len(fArg) == 2) \
+        and (len(fArg) >= 1 and len(fArg) <= 3) \
         and is_tuple(fArg[0]) \
         and len(fArg[0]) == 1 \
         and is_f_arg(fArg[0][0]) 
@@ -230,8 +251,27 @@ def is_reduce(fArg):
 
 def eval_reduce(accum,fArg):
 
+    #print('*'*30)
+    #print('eval_reduce')
+    #print(f'{fArg} is fArg')
+    
     accum=get_args(accum)
-    startVal=fArg[1] if len(fArg) == 2 else None
+
+    #if len(fArg) >= 2:
+
+        #print(f'{fArg[1]} is fArg[1]')
+
+    startVal=eval_or_val(accum,fArg[1]) if len(fArg) >= 2 else None
+
+    #print(f'{accum} is accum')
+
+    if(len(fArg) == 3):
+
+        accum=pype(accum,fArg[2])
+
+    #print(f'now accum is {accum}')
+    #print(f'now startVal is {startVal}')
+
     fArg=fArg[0][0]
     pype_f=lambda acc,x: pype(args(acc,x),fArg)
 
@@ -244,6 +284,8 @@ def eval_reduce(accum,fArg):
         raise Exception('eval_reduce: accum {} is not an iterable'.format(accum))
 
     red=reduce(pype_f,accum) if startVal is None else reduce(pype_f,accum,startVal)
+
+    #print(f'{red} is red')
 
     return args(red)
 
@@ -412,18 +454,16 @@ def is_lambda(fArg):
     return is_tuple(fArg) \
         and len(fArg) >= 1 \
         and not is_mirror(fArg[0]) \
-        and not is_object(fArg[0]) \
         and is_f_arg(fArg[0])
-
 
 
 def eval_lambda(accum,fArgs):
 
-    print('*'*30)
-    print('eval_lambda')
-    print('{} is accum'.format(accum))
-    print('{} is fArgs'.format(fArgs))
-    print('{} is fArgs[1:]'.format(fArgs[1:]))
+    #print('*'*30)
+    #print('eval_lambda')
+    #print('{} is accum'.format(accum))
+    #print('{} is fArgs'.format(fArgs))
+    #print('{} is fArgs[1:]'.format(fArgs[1:]))
 
     accum=accum[ARGS][0]
     fArg=fArgs[0]
@@ -444,8 +484,8 @@ def eval_lambda(accum,fArgs):
 
     lambdaArgs=args(*[eval_or_val(accum,f) for f in fArgs[1:]])
     
-    print('{} is lambdaArgs'.format(lambdaArgs))
-    print('{} is eval of lambdaArgs'.format(pype(lambdaArgs,fArg)))
+    #print('{} is lambdaArgs'.format(lambdaArgs))
+    #print('{} is eval of lambdaArgs'.format(pype(lambdaArgs,fArg)))
 
     return args(pype(lambdaArgs,fArg))
 
@@ -454,15 +494,28 @@ def eval_lambda(accum,fArgs):
 # OBJECT LAMBDA #        
 #################
 
+def has_mirror_or_getter(fArg):
+
+    if is_tuple(fArg) or is_list(fArg) and len(fArg) > 0:
+
+        return has_mirror_or_getter(fArg[0])
+
+    if is_mirror(fArg) or is_getter(fArg):
+
+        return True
+
+    return False
+
 def is_object_lambda(fArg):
 
     #print('*'*30)
     #print('is_object_lambda')
+    #print('{} is fArg'.format(fArg))
     # (_,'method')
  
-   return is_tuple(fArg) \
+    return is_tuple(fArg) \
         and len(fArg) > 1 \
-        and (is_mirror(fArg[0]) or is_object(fArg[0])) \
+        and has_mirror_or_getter(fArg[0]) \
         and is_string(fArg[1])
 
 
@@ -482,18 +535,29 @@ def get_object_lambda_attr(accum,fArgs):
 
 def eval_object_lambda(accum,fArgs):
 
-    print('*'*30)
-    print('eval_object_lambda')
-    print('{} is fArgs'.format(fArgs))
-    print('{} is accum'.format(accum))
+    #print('*'*30)
+    #print('eval_object_lambda')
+    #print('has_mirror_or_getter(fArgs) is {}'.format(has_mirror_or_getter(fArgs)))
+    #print('{} is fArgs'.format(fArgs))
+    #print('{} is accum'.format(accum))
 
     accum=accum[ARGS][0]
-    obj=accum if is_mirror(fArg[0]) else fArg[0]
+
+    if is_mirror(accum):
+
+        obj=accum
+
+    else:
+
+        obj=eval_or_val(accum,fArgs[0])
+
+    #print('{} is obj'.format(obj))
+
     attr=get_object_lambda_attr(obj,fArgs)
     fArgs=args(*[eval_or_val(accum,fArg) for fArg in fArgs[2:]])
 
-    print('{} is attr'.format(attr))
-    print('{} is fArgs'.format(fArgs))
+    #print('{} is attr'.format(attr))
+    #print('{} is fArgs'.format(fArgs))
 
     return args(eval_or_val(fArgs,attr))
 
@@ -585,7 +649,6 @@ def eval_or_filter(accum,fArgs):
 # DICT HELPERS #
 ################
 
-
 ##############
 # DICT BUILD #
 ##############
@@ -601,21 +664,28 @@ def is_explicit_dict_build(fArg):
 
 DICT_FARGS_LIMIT=10
 
+valid_values=lambda ls: any([is_f_arg(el) or is_lam_tup(el) for el in ls])
+
 def dict_values_farg(dct):
 
     values=list(dct.values())[:DICT_FARGS_LIMIT]
 
-    if any([is_f_arg(v) for v in values]):
+    if valid_values(values):
 
         return True
 
     keys=list(dct.keys())[:DICT_FARGS_LIMIT]
     
-    if any([is_f_arg(k) for k in keys]):
+    if valid_values(keys):
 
         return True
 
     return False
+
+
+def is_implicit_dict_build(fArg):
+
+    return is_dict(fArg) and not 'else' in fArg and dict_values_farg(fArg)
 
 
 def is_dict_build(fArg):
@@ -637,7 +707,11 @@ def eval_dict_build(accum,fArgs):
 
         fArgs=fArgs[1]
 
-    return args({eval_or_val(accum,k):eval_or_val(accum,v) for (k,v) in fArgs.items()})
+    # This is so that we can include lamTups in keys but not break the dictionary.
+
+    fArgs=[(delam(k),v) for (k,v) in fArgs.items()]
+
+    return args({eval_or_val(accum,k):eval_or_val(accum,v) for (k,v) in fArgs})
 
 
 def _d(*fArgs):
@@ -881,9 +955,9 @@ def is_while_loop(fArg):
 
 def eval_while_loop(accum,fArg):
 
-    print('*'*30)
-    print('eval_while_loop')
-    print('{} is fArg'.format(fArg))
+    #print('*'*30)
+    #print('eval_while_loop')
+    #print('{} is fArg'.format(fArg))
 
     accum=accum[ARGS][0]
     condition=fArg[1]
@@ -891,23 +965,23 @@ def eval_while_loop(accum,fArg):
     startingVal=fArg[3]
     val=eval_or_val(accum,startingVal)
 
-    print('{} is p(1,_>4)'.format(pype(1,_<4)))
-    print('{} is accum'.format(accum))
-    print('{} is condition'.format(condition))
-    print('{} is function'.format(function))
-    print('{} is startingVal'.format(startingVal))
-    print('{} is val'.format(val))
-    print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
-    print('*'*30)
+    #print('{} is p(1,_>4)'.format(pype(1,_<4)))
+    #print('{} is accum'.format(accum))
+    #print('{} is condition'.format(condition))
+    #print('{} is function'.format(function))
+    #print('{} is startingVal'.format(startingVal))
+    #print('{} is val'.format(val))
+    #print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
+    #print('*'*30)
 
     while not bool(pype(val,condition)):
 
-        print('pype(val,condition) is {}'.format(pype(val,condition)))
-        print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
+        #print('pype(val,condition) is {}'.format(pype(val,condition)))
+        #print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
 
         val=pype(val,function)
 
-    print('val is now {}'.format(val))
+    #print('val is now {}'.format(val))
 
     return args(val)
 
@@ -1101,7 +1175,37 @@ def eval_quote(accum,fArg):
     return args(fArg.val())
 
 
+######
+# DO #
+######
 
+def is_do(fArg):
+
+    return is_list(fArg) and len(fArg) > 1 and fArg[0] == do
+
+
+def eval_do(accum,fArgs):
+
+    #print('eval_do')
+    #print('{} is accum'.format(accum))
+    #print('{} is fArgs'.format(fArgs))
+
+    accum=accum[ARGS][0]
+    newAccum=eval_or_val(accum,fArgs[1])
+
+    #print('{} is newAccum'.format(newAccum))
+    #print('{} is accum'.format(accum))
+
+    if newAccum is None:
+
+        return args(accum)
+
+    return args(newAccum)
+
+
+def _do(fArgs):
+
+    return [do,fArgs]
 
 ########
 # MAIN #
@@ -1129,6 +1233,7 @@ FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_list_concat,eval_list_concat),
             (is_quote,eval_quote),
             (is_while_loop,eval_while_loop),
+            (is_do,eval_do),
             (is_embedded_pype,eval_embedded_pype),
            ]
 
@@ -1160,14 +1265,17 @@ def is_f_arg(fArg):
 
     return any([is_f(fArg) for (is_f,evl) in FARG_PAIRS])
 
+import traceback
+import sys
+import time as tm
 
 def pype_eval(accum,fArg):
 
-    print('*'*30)
-    print('pype_eval')
-    print('{} is accum'.format(accum))
-    print('{} is fArg'.format(fArg))
-    print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
+    #print('*'*30)
+    #print('pype_eval')
+    #print('{} is accum'.format(accum))
+    #print('{} is fArg'.format(fArg))
+    #print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
 
     evalList=[evl for (is_f,evl) in FARG_PAIRS if is_f(fArg)]
 
@@ -1177,7 +1285,38 @@ def pype_eval(accum,fArg):
 
     eval_f=evalList[-1]
 
-    return eval_f(accum,fArg)
+    try:
+
+        if 'timing' in PYPE_LOGGING and PYPE_LOGGING['timing']==True:
+
+            t0=tm.time()
+
+            v=eval_f(accum,fArg)
+        
+            d=tm.time() - t0
+
+            if 'threshold' in PYPE_LOGGING and d >= PYPE_LOGGING['threshold']:
+
+                print('='*30)
+                pp.pprint(fArg)
+                print(f'time to eval: {tm.time() - t0}')
+
+            return v
+
+        return eval_f(accum,fArg)
+
+    except Exception as e:
+
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+
+        ls=traceback.format_exception(type(e),e,exc_traceback)
+        ls=[el for el in ls if '__init__' not in el \
+            and 'Traceback' not in el]
+        
+        print('*'*30)
+        print(' '.join(ls))
+
+        raise e
 
 
 def pype(accum,*fArgs):
@@ -1200,10 +1339,16 @@ def pype(accum,*fArgs):
         accum=args(accum)
 
     fArgs=[delam(fArg) for fArg in fArgs]
-    accum=reduce(pype_eval,fArgs,accum)[ARGS]
 
-    return accum[0] if len(accum) == 1 else accum
+    try:
 
+        accum=reduce(pype_eval,fArgs,accum)[ARGS]
+
+        return accum[0] if len(accum) == 1 else accum
+
+    except Exception as e:
+
+        raise e
 
 ##############
 # BUILD PYPE #
@@ -1489,6 +1634,17 @@ def demo():
     print(x)
 
     assert(x == 4)
+
+    print('='*30)
+    print('pype([1,1,1},[(sm,),1,[add1]])')
+    
+    x=pype([1,1,1],[(sm,),1,[add1]])
+    
+    print(x)
+
+    assert(x == 7)
+    
+    #sys.exit(1)
 
     ###############
     # SWITCH DICT #
@@ -1834,17 +1990,30 @@ def demo():
 
     print('='*30)
 
-    d={'call':Call()}
+    c={'call':Call()}
 
-    print('Call() is callable: {}'.format(is_callable(d['call'])))
-    print("pype(d,_['call'])")
+    print('Call() is callable: {}'.format(is_callable(c['call'])))
+    print("pype(d,_['call'].get_call_me)")
     print(_['call'].get_call_me)
 
-    x=pype(d,_['call'].get_call_me)
+    x=pype(c,_['call'].get_call_me)
 
     print(x)
 
-    sys.exit(1)
+    print('='*30)
+
+    ls=[Call()]
+
+    print("pype(d,_0.get_call_me)")
+    print(_0.get_call_me)
+    print(delam(_0.get_call_me))
+    print('is_object_lambda(_0.get_call_me) {}'.format(is_object_lambda(_0.get_call_me)))
+
+    x=pype(ls,_0.get_call_me)
+
+    print(x)
+
+    #sys.exit(1)
     #print('='*30)
 
     #print("pype({'a':1},(_,'a'))")
@@ -1904,6 +2073,10 @@ def demo():
     assert(x == {1:1,'add1':2,3:4,2:2})
 
     print('='*30)
+    add1=lambda x: x+1
+    print("[d,{_:_,'add1':add1,3:4,add1:add1}]")
+    db=[d,{_:_,'add1':add1,3:4,add1:add1}]
+    #print("is_dict_build([d,{_:_,'add1':add1,3:4,add1:add1}]) {}".format(is_dict_build(db)))
 
     x=pype(1,[d,{_:_,'add1':add1,3:4,add1:add1}])
 
@@ -2174,6 +2347,21 @@ def demo():
 
     assert(x==3)
 
+    print('>'*30)
+    print('DO')
+    print('>'*30)
+
+    print('='*30)
+
+    ls=[1,452,5,6,7,23]
+
+    x=pype(ls,_do(_.sort))
+
+    print("pype(ls,_do(_.sort))")
+
+    assert(x==[1, 5, 6, 7, 23, 452])
+
+    print(x)
 
 if __name__=='__main__':
 

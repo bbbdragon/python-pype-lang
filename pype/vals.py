@@ -8,24 +8,24 @@ is_slice=lambda x: isinstance(x,slice)
 
 def hash_rec(el):
 
-    print('*'*30)
-    print('hash_rec')
-    print(el)
+    #print('*'*30)
+    #print('hash_rec')
+    #print(el)
 
     if is_set(el) or is_list(el) or is_tuple(el):
 
-        print('{} is set'.format(el))
+        #print('{} is set'.format(el))
 
         return hash(str([hash_rec(x) for x in el]))
 
     if is_dict(el):
 
-        print('{} is dict'.format(el))
+        #print('{} is dict'.format(el))
 
         return hash(str({hash_rec(k):hash_rec(v) for (k,v) in el.items()}))
 
-    print(hash(el))
-    print('returning')
+    #print(hash(el))
+    #print('returning')
 
     return hash(el)
 
@@ -98,7 +98,7 @@ class LamTup(object):
 
     def __radd__(self,other):
 
-        return self.__add__(other)
+        return LamTup(add,other,self.val())
 
     def __sub__(self,other):
 
@@ -106,7 +106,8 @@ class LamTup(object):
 
     def __rsub__(self,other):
 
-        return -self.__sub__(other)
+        return LamTup(sub,other,self.val())
+
 
     def __mul__(self,other):
 
@@ -114,7 +115,8 @@ class LamTup(object):
 
     def __rmul__(self,other):
 
-        return self.__mul__(other)
+        return LamTup(mul,other,self.val())
+
 
     def __floordiv__(self,other):
 
@@ -122,7 +124,7 @@ class LamTup(object):
 
     def __rfloordiv__(self,other):
 
-        return self.__floordiv__(other)
+        return LamTup(floordiv,other,self.val())
 
     def __truediv__(self,other):
 
@@ -130,15 +132,15 @@ class LamTup(object):
 
     def __rtruediv__(self,other):
 
-        return self.__truediv__(other)
-    
+        return LampTup(truediv,other,self.val())
+
     def __mod__(self,other):
 
         return LamTup(mod,self.val(),other)
 
     def __rmod__(self,other):
 
-        return self.__mod__(other)
+        return LamTup(mod,other,self.val())
 
     def __pow__(self,other):
 
@@ -146,7 +148,7 @@ class LamTup(object):
 
     def __rpow__(self,other):
 
-        return self.__pow__(other)
+        return LamTup(pow,other,self.val())
 
     # Comparators
 
@@ -252,7 +254,10 @@ def delam(expr):
 
         #print('{} is dict'.format(expr))
 
-        return {delam(k):delam(v) for (k,v) in expr.items()}
+        # This allows lam tups to appear as keys, but then be evaluated as
+        # lambdas in switch dicts and dict builds.
+
+        return {k:delam(v) for (k,v) in expr.items()}
 
     if is_list(expr):
 
@@ -296,3 +301,7 @@ single_1=lambda tup: len(tup[1]) == 1
 singlef=PypeVal(single)
 emptyf=PypeVal(empty)
 quote=lambda v: Quote(v)
+
+def not_empty(v):
+
+    return len(v) != 0
