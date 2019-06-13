@@ -18,7 +18,6 @@ setup(name='pype',
       packages=['pype'],
       install_requires=[
           'numpy',
-          'astpretty',
       ],
       include_package_data=True,
       zip_safe=False)
