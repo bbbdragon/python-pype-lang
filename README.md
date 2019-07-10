@@ -10,25 +10,31 @@ df.dropna()
 ...
 result=get_result_finally(df)
 ```
-It was then, on a particular NLP-related project, that I discovered Clojure.  Functional programming revived my enthusiasm for coding - its cleanness, its expressiveness, its elegance.  I had been using a bee-bee gun to hunt dragons, and suddenly I was given an Uzi ... no, a gatling gun!  Difficult, snarling problems that only got more angry as I pelted them with bee-bees now vanished in a quiet, peaceful, red mist.  
+It was then, on a particular NLP-related project, that I discovered Clojure.  Functional programming revived my enthusiasm for coding - its cleanness, its expressiveness, its elegance.  I had been using a bee-bee gun to hunt dragons, and suddenly I was given an Uzi ... no, a gatling gun!  Difficult, snarling problems that only got more angry as I pelted them with bee-bees now seemed to evaporate in a quiet, peaceful, red mist.  
 
 But if I wanted to build Clojure applications, I would have to embed Python functionality in a microservice, and make HTTP calls or use websockets.  It worked well, but I didn't like the idea of using two different languages to do two different things.  Plus, employers don't really like it when you suddenly decide to switch to a language that no one else on the team knows.  I didn't want to leave Python, because of all its great libraries, so creating my own language was out.  What to do, what to do?
 
 So I began to explore how Python implemented certain functional programming features - reduces, maps, filters, lambdas, etc. - and was still dissatisfied.  Their syntax was cumbersome, it flooded the page, it looked awful.  It was as if Python was grudgingly throwing us a bone, but still pouted about it.  
 
-I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's snippy comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
+I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
 
 I didn't want "syntactic sugar".  I wanted "syntactic plutonium that ignites and in so doing shifts your productivity and awareness of the program to a new level".  
 
-So I decided to create what I call "pseudo-macros" - syntactically valid Python expressions which are, in an of themselves, no more than meaningless lists, tuples, and dictionaries, but that, when used as arguments to a certain function, perform common FP operations.  
+So I decided to create what I call "pseudo-macros" - syntactically valid Python expressions which are, in an of themselves, no more than meaningless native Python data structures - lists, tuples, and dictionaries, mostly - but that, when used as arguments to a certain function, perform common FP operations.
 
-Over a long weekend, while my wife was consulting in Africa, I wrote pype, and I have been using it ever since.
+This also is why pype can't be called a real programming language.  A pype expression compiles in python, but is then interpreted to run code, so the strategy for interpretation is to examine, with if-thens, the structure and content of the data structure.  Later, I added a just-in-time optimizer which could eventually convert a function returning a pype expression into a function returning the result of a series of native Python expressions, by using AST.   
 
-While Pype may be challenging at first, you will soon find that it will become very easy to represent your program logic concisely and elegantly.  
+Over a long weekend, while my wife was away, I wrote pype, and I have been using it ever since.  I have been working on it for months now, but most of the ideas come from this one weekend.  It was written in a weekend ... just like Javascript!  And just like Javascript, it is concise, expressive, not prone to code bloating at all.  Just messing with you.  Javascript is unbelievably bad, in my opinion.  And probably, so is pype.  
 
-If you don't think Pype is awesome, then my apologies, and you're free to not use it.  However, you are invited to suggest improvements, particularly with regards to performance.
+But, it works for me.  I find that it is very easy to represent my program logic concisely and elegantly, and with the optimizer, I have been able to write and deploy performant production code at work.  And I have found that things that programmers use for themselves are often better built than things they write for others - the Linux kernel being the most referred-to-example.  
+
+I didn't really ask for permission, but since I was technically using Python, a permitted language, I somehow managed to get away with it.  This, I think, is another benefit of pype.  You can do real functional programming in Python, which is more likely to be one of the allowed languages at your workplace.  One of my TODO's is to write something that can convert Pype expressions back into humdrum Python code, so you don't even need to commit it.  
 
 Pype is distributed under the MIT license.
+
+# Requirements
+
+Pype uses Python3.6.
 
 # Installation
 
@@ -36,11 +42,14 @@ Clone this repo and cd into the directory `pype`.  To install on your local mach
 
 ```
 cd pype
-pip3 install -e .
+pip3 setup.py install
 ```
-
-To re-install, you will need to remove the `egg-link` file in your `dist-packages` directory, as root:
-
+To re-install, you will need to run the following commands:
+```
+pip3 uninstall pype
+pip3 setup.py install
+```
+To re-install, you may need to remove the `egg-link` file in your `dist-packages` directory, as root:
 ```
 rm /usr/local/lib/python3.6/dist-packages/pype.egg-link 
 ```
@@ -84,8 +93,8 @@ This is nothing special, and can be implemented with a reduce.  However, it turn
 * indexes - Accessing values of list and dictionary accums.
 * xedni's - Accessing values of bound variable lists and dictionaries, with the accums represented in the brackets.
 * swtich dicts - Retruns values based on different conditions applied to the accum.
-* for loops - Returns tuples of Cartesian products of iterables, or fArgs applied to these tuples.
 * dictionary operations - Building dictionaries from the accum, adding key-value pairs, deleting keys from dictionaries.
+* do expressions - For classes with methods that do not return a value, we can run the code and then return the object.
 * list operations - Building lists from the accum, appending items, extending items, concatenation.
 * embedded pypes - Specifying pypes within an fArg.
 
@@ -113,11 +122,12 @@ Here we define the fArgs according to a grammar.  We use the following notation:
 
 ## Callables
 
-A callable is any callable function or object in Python3.
+A callable is any callable function or callable object in Python3.
 
 ~~~~
-
 from pype import pype
+
+add1=lambda x:x+1
 
 pype(1,add1) <=> add1(1) <=> 2
 ~~~~
@@ -126,45 +136,54 @@ pype(1,add1) <=> add1(1) <=> 2
 
 `_`
 
-A mirror simply refers to the accum passed to the expression.  It must be explicitly imported from pype.
+A mirror simply refers to the accum passed to the expression.  It must be explicitly imported from pype, since it overrides the `_` placeholder in Python3.  If you would like to use both, you can import `__`, a double-underscore, but I find the single underscore is much cleaner.
 
 ~~~~
 
-from pype import pype,_
+from pype import pype,_,__
 
 pype(1,_) <=> 1
+pype(1,__) <=> 1
 ~~~~
 
 Mirrors are instances of the `Getter` object, which will be relevant in our discussion of object lambdas, indexes, and xendis.
 
 ## Index Arg
 
-`<_0|_1|_2|_3|_4>`
+`<_0|_1|_2|_3|_4|_last>`
 
 If an index arg is defined as `_n`, we access the n-th element of the accum.  The accum must be a list, tuple, or other type of sequence.  n only goes up to 4, and must be explicitly imported:
 ```
-
 from pype import pype,_0
 
 pype([1,2,3,4,5],_0) <=> [1,2,3,4,5][0] <=> 1
 ```
-
+The `_last` index arg accesses the last element of the sequence:
+```
+pype([1,2,3,4,5],_last)
+```
 Index Args are instances of the `Getter` object, which will be relevant in our discussion of object lambdas, indexes, and xendis.
+
+Currently, pype does not allow you to create your own index-arg, and should just be used as a shorthand for often-used list and tuple access expressions.
 
 ## Maps
 
-`[fArg,+]`
+`[fArg]`
 
-Maps apply apply the sequence of fArgs to each element in the accum if it is a list, tuple, or other type of sequence, or each value of the accum if it is a dictionary or other type of mapping.
+Maps apply apply the fArg to each element in the accum if it is a list, tuple, or other type of sequence, or each value of the accum if it is a dictionary or other type of mapping.
 
 ```
 pype([1,2,3],[add1]) <=> [pype(1,add1),pype(2,add1),pype(3,add1)] <=> [add1(1),add1(2),add1(3)] <=> [2,3,4]
-pype({3:1,4:2,5:3},[add1]) <=> {3:pype(1,add1),4:pype(2,add1),5:pype(3,add1): <=> {3:add1(1),4:add1(2),5:add1(3)} <=> {3:2,4:3,5:4}
+pype({3:1,4:2,5:3},[add1]) <=> {3:pype(1,add1),4:pype(2,add1),5:pype(3,add1)} <=> {3:add1(1),4:add1(2),5:add1(3)} <=> {3:2,4:3,5:4}
+```
+If you would like to apply a mapping to both the keys and values, you can use the helper function `dct_items` in `pype.helpers`, which gets the items of a dictionary:
+```
+from pype.helpers import dct_items
 
-```
-If more than one fArg is specified in the map, then we apply each fArg consecutively to the accum:
-```
-pype([1,2,3],[add1,add1]) <=> [pype(1,add1,add1),pype(2,add1,add1),pype(3,add1,add1)] <=> [add1(add1(1)),add1(add1(2)),add1(add1(3))] <=> [3,4,5]
+def key_value_string(keyValuePair):
+  return f'key is {keyValuePair[0]}, value is {keyValuePair[1]}'
+  
+pype({3:1,4:2,5:3},dct_items,[key_value_string]) <=> ['key is 3, value is 1','key is 4, value is 2','key is 5, value is 3'] 
 ```
 
 ## Reduces
@@ -226,7 +245,15 @@ add1ToLs=build_pype([add1])
 
 pype([[1,2,3],[4,5,6]],[add1ToLs]) <=> [pype([1,2,3],[add1]),pype([3,4,5],[add1])] <=> [[2,3,4],[4,5,6]]
 ```
+I am seriously reconsidering switching out the syntax of the AND filter, since it is ambiguous - if you wanted to apply a mapping every element of a list of lists, for example, this is not yet allowable in pype - the workaround is to use `build_pype` to use the embedded mapping:
+```
+from pype import pype,build_pype as bp
+add1=lambda x: x+1
+apply_add1=bp([add1])
 
+pype([[1,2,3],[4,5,6]],[apply_add1]) <=> [[2,3,4],[5,6,7]]
+```
+But my plans are to replace the AND and OR filters, use boolean operators.
 ## OR Filters
 
 `{hashBoolFArg,+}`
@@ -285,7 +312,7 @@ lenf=PypeVal(len)
 
 pype([1,2,3,4],
       _ + [add1] + [0] * lenf, 
-	  [_ * 3])
+      [_ * 3])
 ```
 ## Object Lambdas
 
@@ -419,6 +446,8 @@ pype(3, {_ > 2: "greater than two", _ < 4 : "less than four", "else" : _}) <=> "
 
 ## For Loops
 
+I am deprecating this feature soon, may be a good idea to stop using it, since I almost never do.  
+
 `[([<fArg1|iterable1|int1>],[<fArg2|iterable2|int2>],+),<fArg3|expression3>?]`
 
 This simulates a loop over a Cartesian product specified by `([<fArg1|iterable1|int1>],[<fArg2|iterable2|int2>],+)`.  `<fArg1|iterable1|int1>` must be an expression for an iterable or an integer, or an fArg that evaluates to an expression for an iterable or an integerThis also applies to `<fArg2|iterable2|int2>`.  If this expression is an integer, we take it as a numeric range, converting it into an iterable.  Each such expression is included in the Cartesian product.
@@ -435,126 +464,369 @@ pype(ls,[([_],[_])]) <=> product(ls,ls) <=> [(1,1),(1,2),(2,1),(2,2)]
 pype(5,[([_],[_ - 1])]) <=> product(range(5),range(5-1)) <=> [(0,-1),(0,0),...(1,-1),(1,0),(1,1)...]
 
 pype(ls,[([_],[_]), _i + _j]) <=> [i+j for (i,j) in product(ls,ls)] <=> [1+1,1+2,2+1,2+2] <=> [2,3,3,4]
+```
+
+## Do expression
+
+`_do(objectCallable)`
+
+This is for instances where objects have methods that change the object, but do not return a value.  `pandas` has a lot of these, such as `dropna`:
 
 ```
+import pandas as pd
+... here df is a pandas dataframe ...
+value=df.dropna()
+
+print(value) <=> None
+```
+So, `_do` runs the function and returns the object.  Note that the object must be the accum:
+```
+pype(df,_do(_.dropna)) <=> df after we run dropna on it.
+```
+
 ## List Build
 
-`[l,<expression|fArg>,+]`
+`_l(<expression|fArg>,+)`
 
 This creates a new list, eith either an expression or an evaluated fArg:
 ```
-from pype import append
+from pype import _l
 
-p([1,2],[l,3,_]) <=> [3,[1,2]]
+p([1,2],_l(_0+8,_1+10)]) <=> [9,20]
 ```
+These are often used when we want to transform the keys and values of a dictionary, in conjunction with index args, `dct_items` and `tup_dct`, the last of which builds a dictionary from a list of tuples or 2-element lists:
+```
+from python.helpers import dct_items,tup_dct
 
+pype({1:2,3:4},
+     dct_items,
+     [_l(_0+5,_1+10)],
+     tup_dct) 
+<=> {6:20,8:40}
+```
 
 ## List Append 
 
-`[append,<expression|fArg>,+]`
+`_append(<expression|fArg>,+])`
 
 This extends a list with either an expression or an evaluated fArg:
 ```
-from pype import append
+from pype import _append
 
-p([1,2],[append,3,4]) <=> [1,2,3,4]
+p([1,2],_append(3,4)) <=> [1,2,3,4]
 ```
 
 ## List Concat 
 
-`[append,<expression|fArg>,+]`
+`_concat([<expression|fArg>,+])`
 
 This concatenates two lists, either expressions or fArgs.
 
 ```
-from pype import concat
+from pype import _concat
 
-p([1,2],[concat,_,[3,4]) <=> [1,2,3,4]
+p([1,2],_concat(_,[3,4]) <=> [1,2,3,4]
 ```
 
 ## Dict Build
 
-`[d,<<expression1|fArg1>,<expression2|fArg2>>,+] | {<expression|hashFArg>:<expression|fArg>,+}`
+`_d(<<expression1|fArg1>,<expression2|fArg2>>,+) | {<expression|hashFArg>:<expression|fArg>,+}`
 
-This builds a dictionary.  If we use the `[d,..]` syntax, we supply key-value pairs consecutively, ensuring that the evaluation of any fArg for a key is hashable:
+This builds a dictionary.  If we use the `_d(..)` syntax, we supply key-value pairs consecutively, ensuring that the evaluation of any fArg for a key is hashable:
 ```
 from pype import d
 
-pype(2,[d,1, _+1,3,_+3]) <=> {1:2+1,3:2+3} <=> {1:3,3:5}
+pype(2,_d(1,_+1,3,_+3)) <=> {1:2+1,3:2+3} <=> {1:3,3:5}
 ```
 If the raw dictionary syntax is used, we must ensure that the dictionary does not contain the key "else", otherwise it will be evaluated as a switch dict:
 ```
-pype(2,{_+1: _+3, _*4: _*3}) <=> {2+1:2+3, 2*4:2*3} <=> {3:5, 8:10}
+pype(2,{_+1:_+3,_*4:_*3}) <=> {2+1:2+3, 2*4:2*3} <=> {3:5, 8:10}
 ```
 
 ## Dict Assoc
 
-`[assoc,<<expression1|fArg1>,<expression2|fArg2>>,+]`
+`_assoc(<<expression1|fArg1>,<expression2|fArg2>>,+)`
 
 We insert one or more key-value pairs into the accum, where accum is a mapping, in the same way as Dict Build:
 ```
-from pype import assoc
+from pype import _assoc
 
-pype({1:2},[assoc,3,4,5,6]) <=> {1:2,3:4,5:6}
+pype({1:2},_assoc(3,4,5,6)) <=> {1:2,3:4,5:6}
 ```
 
+A commonly used shorthand for assoc is `_a` - `import _assoc as _a`.
 ## Dict Merge
-`[merge,<mapping|fArg>]`
+`_merge(<mapping|fArg>)`
 
 This merges a mapping or an fArg that returns a mapping with the accum, which should also be a mapping:
 ```
-from pype import merge
+from pype import _merge
 
-pype({1:2},[merge,{3:4}]) <=> {1:2,3:4}
+pype({1:2},_merge({3:4})) <=> {1:2,3:4}
 ```
-
+A commonly used shorthand for assoc is `_m` - `import _merge as _m`.
 ## Dict Dissoc
-`[dissoc,<expression|fArg>,+]`
+`_dissoc(<expression|fArg>,+)`
 
 This removes keys specified by `<exppression|fArg>,+` from the accum, which must be a mapping:
 ```
 from pype import dissoc
 
-pype({1:2,3:4},[dissoc,1]) <=> {3:4}
+pype({1:2,3:4},_dissoc(1)) <=> {3:4}
 ```
+A commonly used shorthand for assoc is `_d` - `import _dissoc as _d`, although this overrides the `_d` for dict builds, so be careful.
 
 ## Embedded Pype
-`[_p,fArg,+]`
+`_p(fArg,+)`
 
 This embeds a pype expression in an fArg.  The accum passed to the embedding fArg is also passed to the embedded pype:
 ```
 from pype import _p
 
-pype([1,2,3,4,5,6],{"number greater than 3":[_p,[[_ > 3]],len], "number less than three":[_p,[[_ < 3]],len]})
+pype([1,2,3,4,5,6],{"number greater than 3":_p([[_ > 3]],len), "number less than three":_p([[_ < 3]],len])})
 <=> {"number greater than 3": 3, "number less than 3": 2}
 ```
+
+# Other Features
+
+## PypeVals
+
+You have noticed expressions such as `_ > 3` can appear in strange places, such as keys for dictionaries.  That is because pype overrides the operators and translates this expression into a data structure called a LamTup, which can then be evaluated as an fArg. To do this, however, at least one element in the expression must be a PypeVal.  `_` is a PypeVal, for instance, as is `_0`, as are many other things.  A PypeVal overrides most of the operators for expressions and then generates a LamTup, which the interpreter evaluates.  So that means that an expression must have a PypeVal in it for this to happen.  You can convert variables into PypeVals by simply declaring a PypeVal instance around them:
+```
+from pype.vals import PypeVal as v
+
+lists=[[1,2,3,4],
+       [4,5,6],
+       [2,3],
+       [1,2,3,4,5,6,7,8,9]]
+
+pype(lists,[[v(len) > 3]]) 
+<=> [[1,2,3,4],
+     [4,5,6],
+     [1,2,3,4,5,6,7,8,9]]
+```
+By the way, this use of `len` as a PypeVal is so common that it is included in `pype.vals` as `lenf`.
+
+The only unfortunate exception is boolean operators and `in` expressions, which cannot be overriden by Python.  I am working on getting around this by creating other operators which will replace them, `|and|`, `|or|`, etc.
+## `build_pype`
+
+This builds a callable function from a pype expression.  It is especially useful for embedded maps, as de saw above:
+```
+from pype import build_pype as bp
+
+value_multiply=bp([_['value'],_*10])
+
+dctLS=[{'name':'car','value':2000},
+       {'name':'apple','value':3},
+       {'name':'orange','value':5},
+       {'name':'cherry','value':1}]
+
+pype(dctLS,value_multiply) <=> [20000,30,50,10]
+```
+## Pype Helpers
+
+`pype.helpers` is a module containing many helpful operations on lists and dictionaries.  We have already seen `dct_values` and `tup_dct`, but there are several others that are useful, only a few of which we will cover here (most of the functions are one-liners, so you can just browse the code to learn all of them).
+
+### `tup_ls_dct`
+
+This takes a list of key-value tuples and builds a dictionary of the form `{k1:[el1,..],...}`, where list elements are all values that correspond with a single key:
+```
+tup_ls_dct([(1,2),(1,3),(4,5),(4,8),(4,9)]) => {1:[2,3],4:[5,8,9]}
+```
+
+### `merge_ls_dct(dctLS,key)`
+
+`dctLS` is a list of dictionaries, and `key` is a key that is in all these dictionaries.  It returns an aggregation of the dictionaries by key:
+```
+merge_ls_dct([{'name':'bobo','payment':20},{'name':'bob','payment':30},{'name':'bob','payment':50},{'name':'susan','payment':10}],'name')
+=> {'bobo':[{'name':'bobo','payment':20}],
+    'bob':[{'name':'bob','payment':30},{'name':'bob','payment':50}],
+    'susan':[{'name':'susan','payment':10}])
+```
+
+`merge_ls_dct_no_key` does the same thing, except it deletes the key from the embedded dictionaries:
+```
+merge_ls_dct_no_key([{'name':'bobo','payment':20},
+                     {'name':'bob','payment':30},
+		     {'name':'bob','payment':50},
+		     {'name':'susan','payment':10}],
+		     'name')
+=> {'bobo':[{'payment':20}],
+    'bob':[{'payment':30},{'payment':50}],
+    'susan':[{'payment':10}])
+```
+The usefulness of these two functions becomes more apparent when we show them with pype:
+```
+from pype import pype
+from pype.helpers import merge_ls_dct_no_key
+
+dctLS=[{'name':'bobo','payment':20},
+       {'name':'bob','payment':30},
+       {'name':'bob','payment':50},
+       {'name':'susan','payment':10}]
+       
+pype(dctLs,
+     merge_dct_ls,
+     [_['payment']]) 
+<=> {'bobo':[20],'bob':[30,50],'susan':[10])
+```
+### `sort_by_key(ls,key,rev=False)`
+
+This sorts a list of dictionaries by the key provided.  `rev` is just the `reverse` variable in `sorted`:
+```
+dctLS=[{'name':'bobo','payment':20},
+       {'name':'bob','payment':30},
+       {'name':'bob','payment':50},
+       {'name':'susan','payment':10}]
+
+sort_by_key(dctLS,'payment') =>
+[{'name':'susan','payment':10},
+ {'name':'bobo','payment':20},
+ {'name':'bob','payment':30},
+ {'name':'bob','payment':50}]
+```
+### `sort_by_index(ls,index,rev=False)`
+
+In this case, `ls` is a list of tuples or lists, and `index` is just an integer for the index:
+```
+ls=[(1,4),(-1,5),(2,3)]
+    
+sort_by_index(ls,0) => [(-1,5),(1,4),(2,3)]
+sort_by_index(ls,1) => [(2,3),(1,4),(-1,5)]
+```
+# Optimization
+
+Pype is interpreted, which means that a pype call goes through the list of fArgs, identifies the type of fArg it is, and then evaluates this.  You will quickly find that this can be a serious performance bottleneck in long lists or dictionaries.  To address this, I built a decorator, `optimize`, which evaluates pype only once, and then rebuilds the function using abstract syntax trees.  Because these AST's prefer the most optimized Python operations on collections (dict and list comprehensions), this can often lead to a performance boost of 1-2 orders of magnitude.
+
+Currently, `optimize` only runs on the returned pype call in a function:
+
+```
+from pype import pype
+from pype.optimize import optimize
+
+@optimize
+def optimized(ls):
+  return pype(ls,
+              [_+3],
+	      [_*4])
+```
+As of today, optimized pype only covers a subset of fArg types:
+
+* callables
+* mirrors
+* index args
+* lambdas
+* indexes
+* maps
+* AND filters
+* switch dicts
+* dict assocs
+* dict merges
+* list_builds
+* embedded pype
+
+The optimizer is a work in progress, so it is best to first ensure your program runs in interpreted pype, and apply the `optimize` decorator to each function, testing along the way.
+
+# Tips for Good Pype
+
+## Style
+
+I don't know why, but I always found the traditional writing order of Old Chinese, from top-to-bottom, somehow very beautiful.  Pype reflects this, because it encourages you to always separate your fArgs by line:
+```
+from pype import pype as p
+
+def process_list(ls):
+ return p(ls,
+          [_+1],
+	  [[_ > 2]],
+	  len,
+	 )
+```
+The real value of this, though, is that debugging is much easier, because all you need to do is put `#` before each line, and evaluate the expression fArg by fArg.
+```
+from pype import pype as p
+
+def process_list(ls):
+ return p(ls,
+          [_+1],
+	  #[[_ > 2]],
+	  #len,
+	 )
+```
+By the way, while we are on the topic of Chinese writing - in "The Karate Kid", the scrolls for "rule number 1: use karate for defense only, never for attack" actually read, in Chinese, "kong shou wu xian shou", which means, literally, "empty kand (karate) not first hand" - or, "karate is not the first hand".  So much more eloquent and concise than the English.  A pype programmer is an office drone on the outside, theoretically writing in Python.  But, like a martial arts master, although they humbly go through the world and have infinite patience for the fumblings and bloated code of others, they never provoke, they never antagoinze, and they always quietly leave behind little amounts of virtuous kickassery in a world of wrongness.   
+
+## Scoping
+Pype doesn't have an equivalent of `let` in Clojure, where you can create scopes on the fly, so to compensate for this I often used dict builds to define an accum which was, in fact, a scope for the succeeding fArg:
+```
+from pype import pype as p
+
+def ls_times_itself(ls):
+ return p(ls,
+ 	  [_+2],
+	  [[_ < 4]],
+          {'len':len,
+	   'ls':_},
+	  _['ls']*_['len'],
+	 )
+```
+Pretty awesome, but be careful - it leads to a lot of bloat.  When you can, define your variables in the function body before the pype expression:
+```
+from pype import pype as p
+
+def ls_times_itself(ls):
+ sz=len(ls)
+ return p(ls,
+          [_+2],
+	  [[_ < 4]],
+	  _*sz,
+         )
+```
+Much cleaner.
+
+## Mixing Python and Pype
+The whole point of Pype is to allow you to program functionally while not having to give up Python's awesome libraries.  So when and where you want, mix mix mix.
+
+For hyper-fast numerical processing, I often find writing functions in imperative numpy and then using pype to define the overall program logic is the most effective.  
+
+## Loops within loops
+Because of the syntactic ambiguity of the AND filter (which I'm strongly considering getting rid of) is that, technically, it conflicts with embedded maps.  I just find '[[]]' so much easier to write than anything else.  But the pattern I have shown above, where you enclose an embedded loop in a `build_pype`, actually makes your code quite messy quite fast.  
+
+I find it's much cleaner at this point to avoid `build_pype` and use `def` instead to write embedded loops.  I am working on inlining in the optimizer, so that this will not have any performance repercussions.
 
 # FAQ
 
 * "Is Pype Fast"
 
-Not really, not yet, anyway.  I'm working on trying numba decorators, caching, and redoing pype functions as AST's.  But also, ask yourself something - you're using Python.  You're not programming microprocessors for toasters in C.  Does it really matter if your program runs in 3 seconds instead of 2?
+Interpreted pype isn't very fast.  Optimized pype runs as fast as regular Python, because it is.  But also, ask yourself something - you're using Python.  You're not programming microprocessors for toasters in C.  Does it really matter if your program runs in 3 seconds instead of 2?
 
 * "Is Pype Turing-Complete?"
 
-Like I really care.  But seriously, CS shouldn't get in the way of programming.
+Like. I. Really. Fucking. Care.  But seriously, CS shouldn't get in the way of programming.
 
 * "What's wrong with LISP?  What's wrong with Clojure?  What's wrong with Haskell?"
 
 Don't get me wrong, I love these languages.  They're fricking awesome.  But ... try to convince an employer to allow you to use these languages.  With pype, you can say you use Python.  
 
-There is a good LISP library in Python called hy.  Use it if you want to.  Or use pype.
+There is a good LISP library in Python called hy, although seems to have some perfomance issues.  Pype will never be Lisp, ever.  To paraphrase the Zefiro Anejo motto, "hasta el repl, es una obra de arte".  Lisp is a work of art.  Use it if you can.  Or use pype.
 
-I think there are three main benefits to using pype over these languages.  First, you have the richness of Python (pandas, numpy, scikit-learn, various Neural Network libraries) at your fingertips, without having to enclose them in microservices. Second, you can embed pype into any python code you want.  Thirdly, the pseudo-macros in the language for maps, reduces, filters, etc. are actually more concise than many LISP macros.
+I think there are three main benefits to using pype over these .  First, you have the richness of Python (pandas, numpy, scikit-learn, various Neural Network libraries) at your fingertips, without having to enclose them in microservices. Second, you can embed pype into any python code you want.  Thirdly, I've found that the expressions for maps, reduces, filters, etc. are actually more concise than many LISP or Clojure macros.
 
-What does this last thing mean?  When you're programing, there's the thought, and there's the code.  Most of programming is going through the mental overhead of translating thought into code.  But the problem is, you think more slowly, because you try a new idea, translate/implement, try another idea, translate/implement, until you get to the right idea and the right implementation.  And, half the time, your thinking is wrong.  
+What does this last thing mean?  When you're programing, there's the thought, and there's the code.  Most of programming is going through the mental overhead of translating thought into code.  More verbose languages require more overhead.  But the problem is, you think more slowly, because you try a new idea, translate/implement, try another idea, translate/implement, until you get to the right idea and the right implementation.  And, half the time, your thinking is wrong.  
 
-Because of succinctness, debugging reduces to two problems - getting the syntax right and getting the thought right.  You can do that, or you can program C++ at an investment bank.  It's your life.    
+Because of the implementation's succinctness, debugging pype reduces to two problems - getting the syntax right and getting the thought right.  You can do that, or you can program C++ at an investment bank.  It's your life.    
 
-* "Is pype Readable?"
+* "Is pype readable?"
 
 One way I evaluate a coding style is to write a piece of code and then revisit it several weeks later.  How easy is it to figure out what you're doing?  With C++ or Java, forget it.  I notice when I come back to something written in pype, there's very little overhead trying to re-understand something.
 
-Maybe other developers will complain about your using pype, but don't take it personally.  Developers take about as much interest in one anothers' code as 3-year-olds take in one anothers' fingerpainting.  Besides, if they can't understand what a map, reduce, or filter is, should they really be developing?  You'll get your work done 10x faster, anyway.
+Maybe other developers will complain about your using pype, but don't take it personally.  Office developers take about as much interest in one anothers' code as 3-year-olds take in one anothers' fingerpainting.  Besides, if they can't understand what a map, reduce, or filter is, should they really be developing?  You'll get your work done 10x faster, anyway, so the bosses will love you - or fire you for being too productive.
+
+But this isn't an advertisement.  I genuinely do not care if you use pype or not - it works for me, not so well for others.  And, in huge amounts, the hyper-concise notation can get you lost.  See above on how to make your code maintainable.  
+
+* "Can you dynamically generate pype code"
+
+Theoretically, yes, you can, because fArgs are just native Python, so you could generate your fArgs programmatically somehow, and then feed them to pype as varargs.  The real question is, can you use pype itself to generate these expressions.  At this point, I am not sure.  I am working on a "quote" fArg, which prevents the fArg from being evaluated by the interpreter.  This is necessary for situations where you have functions that pass other functions as arguments - pype as described above would evaluate those functions on the accum first.  But I have not tried this.  I'm not a world-moving genius like John McCarthy (although my Mom's name is McCarthy, so I guess her side of the family isn't all cops and real estate dealers), but more to the point, pype arose naturally out of my need to write programs faster, rather than a theoretical concern, so I went at the things I needed and wanted before the things that were theoretically important.    
+
+# Conclusion
 
 You could do worse.  You probably have.  Use pype.
