@@ -18,9 +18,9 @@ So I began to explore how Python implemented certain functional programming feat
 
 I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
 
-I didn't want "syntactic sugar".  I wanted "syntactic plutonium that ignites and in so doing shifts your productivity and awareness of the program to a new level".  
+I didn't want "syntactic sugar".  Sugar doesn't change things deeply, make you see things differently.  No, motherfucker, I wanted "syntactic plutonium".    
 
-So I decided to create what I call "pseudo-macros" - syntactically valid Python expressions which are, in an of themselves, no more than meaningless native Python data structures - lists, tuples, and dictionaries, mostly - but that, when used as arguments to a certain function, perform common FP operations.
+So I decided to create what I call "pseudo-macros", or "fArgs" - syntactically valid Python expressions which are, in an of themselves, no more than meaningless native Python data structures - lists, tuples, and dictionaries, mostly - but that, when used as arguments to a certain function, perform common FP operations.
 
 This also is why pype can't be called a real programming language.  A pype expression compiles in python, but is then interpreted to run code, so the strategy for interpretation is to examine, with if-thens, the structure and content of the data structure.  Later, I added a just-in-time optimizer which could eventually convert a function returning a pype expression into a function returning the result of a series of native Python expressions, by using AST.   
 
@@ -28,7 +28,7 @@ Over a long weekend, while my wife was away, I wrote pype, and I have been using
 
 But, it works for me.  I find that it is very easy to represent my program logic concisely and elegantly, and with the optimizer, I have been able to write and deploy performant production code at work.  And I have found that things that programmers use for themselves are often better built than things they write for others - the Linux kernel being the most referred-to-example.  
 
-I didn't really ask for permission, but since I was technically using Python, a permitted language, I somehow managed to get away with it.  This, I think, is another benefit of pype.  You can do real functional programming in Python, which is more likely to be one of the allowed languages at your workplace.  One of my TODO's is to write something that can convert Pype expressions back into humdrum Python code, so you don't even need to commit it.  
+I didn't really ask for permission, but since I was technically using Python in the office, I somehow managed to get away with it.  This, I think, is another benefit of pype.  You can do real functional programming in Python, which is more likely to be one of the allowed languages at your workplace.  One of my TODO's is to write something that can convert Pype expressions back into humdrum Python code, so you don't even need to commit it.  
 
 Pype is distributed under the MIT license.
 
