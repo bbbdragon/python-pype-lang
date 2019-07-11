@@ -69,6 +69,18 @@ Now, you are ready to run the demo, which evaluates several pype expressions and
 >>> demo()
 WELCOME TO PYPE! ...
 ```
+
+# Examples
+
+It may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Currently, there is an implementation of:
+
+* recursive quicksort - `examples/quicksort.py`
+
+To run any of these files from a command line, just type in the quoted command at the beginning of the file.  For example, `quicksort.py` can be run by typing:
+
+```
+python3 quicksort.py
+```
 # Overview
 
 The main function in pype is called `pype`, and it consists of two sets of parameters, the start value and the fArgs:
