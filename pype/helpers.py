@@ -314,3 +314,11 @@ def zip_to_dct(tups,keys):
     return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
 
     
+def middle(ls):
+
+    if len(ls) == 0:
+
+        return 0
+
+    return ls[int(len(ls)/2)]
+
