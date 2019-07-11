@@ -926,12 +926,20 @@ def is_list_concat(fArg):
 def eval_list_concat(accum,fArgs):
 
     accum=coerce_to_list(accum[ARGS][0])
+    evalLS=[eval_or_val(accum,fArg) for fArg in fArgs[1:]]
+    ls=[]
 
-    for fArg in fArgs[1:]:
+    for el in evalLS:
 
-        accum.extend(coerce_to_list(fArg))
+        if is_list(el) or is_tuple(el):
 
-    return args(accum)
+            ls.extend(el)
+
+        else:
+
+            ls.append(el)
+
+    return args(ls)
 
 
 def _concat(*fArgs):
