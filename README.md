@@ -644,7 +644,7 @@ merge_ls_dct([{'name':'bobo','payment':20},{'name':'bob','payment':30},{'name':'
     'susan':[{'name':'susan','payment':10}])
 ```
 
-`merge_ls_dct_no_key` does the same thing, except it deletes the key from the embedded dictionaries:
+`merge_ls_dct_no_key` does the same thing, except it deletes the key from the dictionaries.  This is helpful especially when sending out large lists of JSON's via HTTP - where string processing can become a performance bottleneck:
 ```
 merge_ls_dct_no_key([{'name':'bobo','payment':20},
                      {'name':'bob','payment':30},
@@ -731,7 +731,7 @@ The optimizer is a work in progress, so it is best to first ensure your program 
 
 ## Style
 
-I don't know why, but I always found the traditional writing order of Old Chinese, from top-to-bottom, somehow very beautiful.  Pype reflects this, because it encourages you to always separate your fArgs by line:
+I don't know why, but I always found the traditional writing order of Chinese, from top-to-bottom, somehow very beautiful.  Pype reflects this (and perhaps, subconsciously, my admiration for the elegant simplicity of Classical Chinese art), because it encourages you to always separate your fArgs by line:
 ```
 from pype import pype as p
 
@@ -753,20 +753,26 @@ def process_list(ls):
 	  #len,
 	 )
 ```
-By the way, while we are on the topic of Chinese writing - in "The Karate Kid", the scrolls for "rule number 1: use karate for defense only, never for attack" actually read, in Chinese, "kong shou wu xian shou", which means, literally, "empty kand (karate) not first hand" - or, "karate is not the first hand".  So much more eloquent and concise than the English.  A pype programmer is an office drone on the outside, theoretically writing in Python.  But, like a martial arts master, although they humbly go through the world and have infinite patience for the fumblings and bloated code of others, they never provoke, they never antagoinze, and they always quietly leave behind little amounts of virtuous kickassery in a world of wrongness.   
+By the way, while we are on the topic of Chinese writing - in "The Karate Kid", the scrolls for "rule number 1: use karate for defense only, never for attack" actually read, in Chinese, "kong shou wu xian shou", which means, literally, "empty kand (karate) not first hand" - or, "karate is not the first hand".  So much more eloquent and concise than the English.  A pype programmer is an office drone on the outside, theoretically writing in Python.  But, like a martial arts master, although they humbly go through the world and have infinite patience for the fumblings and bloated code of others, they never provoke, they never antagoinze, but they always leave behind little amounts of virtuous kickassery in a world of wrongness.   
+
+## Feel it, func it
+Generally, the process of pype programming starts with a large pype expression - in fact, concisely defining program logic is pype's superpower.  As the expression gets longer, you move functionality to other funcitons.  But it's very important to keep each function small, no more than 10-20 lines or so, so you see the entire program logic. 
+
+I do not subscribe to the philosophy of "let the function do its own work", that if a function is only called once, it shouldn't be a function.  That leads to functions that are dozens of lines, which are a nightmare to deal with.  I think a function's primary purpose is to compartmentalize a thought, and expand that thought once you're ready.  The optimizer's upcoming inliner will make remove any performance problems that come from this.
 
 ## Scoping
-Pype doesn't have an equivalent of `let` in Clojure, where you can create scopes on the fly, so to compensate for this I often used dict builds to define an accum which was, in fact, a scope for the succeeding fArg:
+Because the Python interpreter doesn't allow you to refer to unnamed variables, pype doesn't have an equivalent of `let` in Clojure, where you can create scopes on the fly.  To compensate for this I often used dict builds to define an accum which was, in fact, a scope for the succeeding fArg:
 ```
 from pype import pype as p
+from pype.val import lenf
 
 def ls_times_itself(ls):
  return p(ls,
  	  [_+2],
 	  [[_ < 4]],
-          {'len':len,
+          {'new_len':lenf*2,
 	   'ls':_},
-	  _['ls']*_['len'],
+	  _['ls']*_['new_len'],
 	 )
 ```
 Pretty awesome, but be careful - it leads to a lot of bloat.  When you can, define your variables in the function body before the pype expression:
@@ -774,7 +780,7 @@ Pretty awesome, but be careful - it leads to a lot of bloat.  When you can, defi
 from pype import pype as p
 
 def ls_times_itself(ls):
- sz=len(ls)
+ sz=len(ls)*2
  return p(ls,
           [_+2],
 	  [[_ < 4]],
@@ -786,7 +792,7 @@ Much cleaner.
 ## Mixing Python and Pype
 The whole point of Pype is to allow you to program functionally while not having to give up Python's awesome libraries.  So when and where you want, mix mix mix.
 
-For hyper-fast numerical processing, I often find writing functions in imperative numpy and then using pype to define the overall program logic is the most effective.  
+For hyper-fast numerical processing, I often find writing functions in imperative numpy and then using pype to define the overall program logic is the most effective.  But I'd like to add a module of numpy helpers.
 
 ## Loops within loops
 Because of the syntactic ambiguity of the AND filter (which I'm strongly considering getting rid of) is that, technically, it conflicts with embedded maps.  I just find '[[]]' so much easier to write than anything else.  But the pattern I have shown above, where you enclose an embedded loop in a `build_pype`, actually makes your code quite messy quite fast.  
@@ -801,13 +807,13 @@ Interpreted pype isn't very fast.  Optimized pype runs as fast as regular Python
 
 * "Is Pype Turing-Complete?"
 
-Like. I. Really. Fucking. Care.  But seriously, CS shouldn't get in the way of programming.
+Like I really fucking care.  But seriously, CS shouldn't get in the way of programming.
 
 * "What's wrong with LISP?  What's wrong with Clojure?  What's wrong with Haskell?"
 
-Don't get me wrong, I love these languages.  They're fricking awesome.  But ... try to convince an employer to allow you to use these languages.  With pype, you can say you use Python.  
+Don't get me wrong, I love these languages.  They're awesome.  But ... try to convince an employer to allow you to use these languages.  With pype, you can say you use Python.  
 
-There is a good LISP library in Python called hy, although seems to have some perfomance issues.  Pype will never be Lisp, ever.  To paraphrase the Zefiro Anejo motto, "hasta el repl, es una obra de arte".  Lisp is a work of art.  Use it if you can.  Or use pype.
+There is a good LISP library in Python called hy, although seems to have some perfomance issues.  Pype will never be Lisp, ever.  To paraphrase the Zefiro Anejo motto, "hasta el repl, es una obra de arte".  Lisp is a work of art.  Lisp is Mozart.  Use it if you can.  Or use pype.
 
 I think there are three main benefits to using pype over these .  First, you have the richness of Python (pandas, numpy, scikit-learn, various Neural Network libraries) at your fingertips, without having to enclose them in microservices. Second, you can embed pype into any python code you want.  Thirdly, I've found that the expressions for maps, reduces, filters, etc. are actually more concise than many LISP or Clojure macros.
 
@@ -825,7 +831,7 @@ But this isn't an advertisement.  I genuinely do not care if you use pype or not
 
 * "Can you dynamically generate pype code"
 
-Theoretically, yes, you can, because fArgs are just native Python, so you could generate your fArgs programmatically somehow, and then feed them to pype as varargs.  The real question is, can you use pype itself to generate these expressions.  At this point, I am not sure.  I am working on a "quote" fArg, which prevents the fArg from being evaluated by the interpreter.  This is necessary for situations where you have functions that pass other functions as arguments - pype as described above would evaluate those functions on the accum first.  But I have not tried this.  I'm not a world-moving genius like John McCarthy (although my Mom's name is McCarthy, so I guess her side of the family isn't all cops and real estate dealers), but more to the point, pype arose naturally out of my need to write programs faster, rather than a theoretical concern, so I went at the things I needed and wanted before the things that were theoretically important.    
+Theoretically, yes, you can, because fArgs are just native Python, so you could generate your fArgs programmatically somehow, and then feed them to pype as varargs.  The real question is, can you use pype itself to generate these expressions.  At this point, I am not sure.  I am working on a "quote" fArg, which prevents the fArg from being evaluated by the interpreter.  This is necessary for situations where you have functions that pass other functions as arguments - pype as described above would evaluate those functions on the accum first.  But I have not tried this.  I'm not a world-moving genius like John McCarthy (although my Mom's name is McCarthy, so I guess her side of the family isn't all cops, salesmen, and real estate dealers), but more to the point, pype arose naturally out of my need to write programs faster, rather than a theoretical concern, so I went at the things I needed and wanted before the things that were theoretically important.    
 
 # Conclusion
 
