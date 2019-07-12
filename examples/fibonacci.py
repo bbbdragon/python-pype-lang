@@ -18,7 +18,7 @@ def fib(n):
 
 if __name__=='__main__':
             
-    print(f'fibonacci')
+    print(f'Fibonacci')
 
     for i in range(10):
 
