@@ -120,10 +120,11 @@ def ls_dct_union(listDict1,listDict2):
 
 def merge_ls_dct(dctLS,key):
 
-    return reduce(lambda h,dct:add_to_ls_dct(h,dct[key],dct),
-                  dctLS,
-                  defaultdict(lambda:list()))
+    dd=reduce(lambda h,dct:add_to_ls_dct(h,dct[key],dct),
+              dctLS,
+              defaultdict(lambda:list()))
 
+    return dict(dd)
 
 def add_to_ls_dct_no_key(listDict,key,deletedKey,val):
 
@@ -138,9 +139,11 @@ def merge_ls_dct_no_key(dctLS,key):
     '''
     gets rid of key in the added value
     '''
-    return reduce(lambda h,dct:add_to_ls_dct_no_key(h,dct[key],key,dct),
-                  dctLS,
-                  defaultdict(lambda:list()))
+    dd=reduce(lambda h,dct:add_to_ls_dct_no_key(h,dct[key],key,dct),
+              dctLS,
+              defaultdict(lambda:list()))
+
+    return dict(dd)
 
 
 def unroll_ls_dct(dctLS):
