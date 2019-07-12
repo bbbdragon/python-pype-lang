@@ -72,9 +72,11 @@ WELCOME TO PYPE! ...
 
 # Examples
 
-It may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Currently, there is an implementation of:
+It may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Please be sure to install `requirements.txt` to ensure these examples work.  Currently, there is an implementation of:
 
 * recursive quicksort - `examples/quicksort.py`
+* recursive Fibonacci - `examples/fibonacci.py`
+* JSON aggregation - `examples/json_examples/aggregations.py` This script will familiarize you with useful JSON manipulations that Pype excels at.
 
 To run any of these files from a command line, just type in the quoted command at the beginning of the file.  For example, `quicksort.py` can be run by typing:
 
