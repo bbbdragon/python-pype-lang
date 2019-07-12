@@ -813,6 +813,18 @@ Because of the syntactic ambiguity of the AND filter (which I'm strongly conside
 
 I find it's much cleaner at this point to avoid `build_pype` and use `def` instead to write embedded loops.  I am working on inlining in the optimizer, so that this will not have any performance repercussions.
 
+## Immutability
+
+Unfortunately, for performance reasons, we cannot ensure immutability.  This is because many of the dictionary operations act on the original dictionary passed to pype, rather than a copy of it.  Unlike the ultra-light lists and dictionaries of Clojure, Python simply cannot remain performant while creating new dictionaries or lists with every expression.  Therefore, if you are going to call pype more than once on the same data structure, you should use a deepcopy to ensure you are working on the same data.
+```
+from copy import deepcopy
+
+js1={....}
+js2=deepcopy(js1)
+
+val1=some_pype_func(js1)
+val2=some_other_pype_func(js2)
+```
 # FAQ
 
 * "Is Pype Fast"
