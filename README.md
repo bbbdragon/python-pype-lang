@@ -681,7 +681,7 @@ dctLS=[{'name':'bobo','payment':20},
        {'name':'susan','payment':10}]
        
 pype(dctLs,
-     merge_dct_ls,
+     (merge_dct_ls,_,'name'),
      [_['payment']]) 
 <=> {'bobo':[20],'bob':[30,50],'susan':[10])
 ```
