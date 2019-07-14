@@ -770,7 +770,10 @@ def process_list(ls):
 ```
 By the way, while we are on the topic of Chinese writing - in "The Karate Kid", the scrolls for "rule number 1: use karate for defense only, never for attack" actually read, in Chinese, "kong shou wu xian shou", which means, literally, "empty kand (karate) not first hand" - or, "karate is not the first hand".  So much more eloquent and concise than the English.  A pype programmer is an office drone on the outside, theoretically writing in Python.  But, like a martial arts master, although they humbly go through the world and have infinite patience for the fumblings and bloated code of others, they never provoke, they never antagoinze, but they always leave behind little amounts of virtuous kickassery in a world of wrongness.   
 
-## Feel it, func it
+## Feel it? Fuck it ... func it!
+
+By "fuck it" I mean, in the Big Lubowsky sense, "fuck it ...", "don't worry about it".  The contributors of the pype repository do not in any way encourage innappropriate sexual behavior with your own code - however tempting it may be, you pathetic dork.  
+
 Generally, the process of pype programming starts with a large pype expression - in fact, concisely defining program logic is pype's superpower.  As the expression gets longer, you move functionality to other funcitons.  But it's very important to keep each function small, no more than 10-20 lines or so, so you see the entire program logic. 
 
 I do not subscribe to the philosophy of "let the function do its own work", that if a function is only called once, it shouldn't be a function.  That leads to functions that are dozens of lines, which are a nightmare to deal with.  I think a function's primary purpose is to compartmentalize a thought, and expand that thought once you're ready.  The optimizer's upcoming inliner will make remove any performance problems that come from this.
