@@ -772,7 +772,7 @@ By the way, while we are on the topic of Chinese writing - in "The Karate Kid", 
 
 ## Feel it? Fuck it ... func it!
 
-By "fuck it" I mean, in the Big Lubowsky sense, "fuck it ...", "don't worry about it".  The contributors of the pype repository do not in any way encourage innappropriate sexual behavior with your own code - however tempting it may be, you pathetic dork.  
+By "fuck it" I mean, in the Big Lubowsky sense, "fuck it ...", "don't worry about it".  The contributors of the pype repository do not in any way encourage innappropriate sexual behavior with your own code.  So don't get any ideas, you pathetic dork.  
 
 Generally, the process of pype programming starts with a large pype expression - in fact, concisely defining program logic is pype's superpower.  As the expression gets longer, you move functionality to other funcitons.  But it's very important to keep each function small, no more than 10-20 lines or so, so you see the entire program logic. 
 
