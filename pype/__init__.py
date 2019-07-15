@@ -451,6 +451,16 @@ def eval_xedni(accum,fArg):
 
 def is_lambda(fArg):
 
+    #print('*'*30)
+    #print('is_lambda')
+    #print(f'{fArg} is fArg')
+    
+    #isLam=is_tuple(fArg) \
+    #    and len(fArg) >= 1 \
+    #    and not is_mirror(fArg[0]) \
+    #    and is_f_arg(fArg[0])
+    #print(f'{isLam} is lam')
+
     return is_tuple(fArg) \
         and len(fArg) >= 1 \
         and not is_mirror(fArg[0]) \
@@ -1221,6 +1231,7 @@ def _do(fArgs):
 
 FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_index_arg,eval_index_arg),
+            (is_index,eval_index),
             (is_callable,eval_callable),
             (is_map,eval_map),
             (is_for_loop,eval_for_loop),
@@ -1230,7 +1241,6 @@ FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_switch_dict,eval_switch_dict),
             (is_lambda,eval_lambda),
             (is_object_lambda,eval_object_lambda),
-            (is_index,eval_index),
             (is_xedni,eval_xedni),
             (is_dict_build,eval_dict_build),
             (is_dict_assoc,eval_dict_assoc),
@@ -1292,6 +1302,8 @@ def pype_eval(accum,fArg):
         raise Exception('fArg {} does not match any fArg types'.format(fArg))
 
     eval_f=evalList[-1]
+
+    #print(f'{eval_f} is eval_f')
 
     try:
 
