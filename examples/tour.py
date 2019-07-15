@@ -492,6 +492,8 @@ def demo():
     
     assert(x == 4)
 
+    '''
+    Here I'm having a bit of trouble, need to fix.
     sys.exit(1)
     
     print('='*30)
@@ -515,7 +517,7 @@ def demo():
     print(x)
 
     assert(x == 4)
-
+    '''
     #########
     # XEDNI #
     #########
