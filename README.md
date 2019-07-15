@@ -62,14 +62,6 @@ Now you are ready to test pype, in Python3:
 >>> pype(1,add1)
 2
 ```
-
-Now, you are ready to run the demo, which evaluates several pype expressions and shows you their output:
-```
->>> from pype import demo
->>> demo()
-WELCOME TO PYPE! ...
-```
-
 # Examples
 
 Before wading into the documentation, it may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Please be sure to install `requirements.txt` to ensure these examples work.  Currently, there is an implementation of:
