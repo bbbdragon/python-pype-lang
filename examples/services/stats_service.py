@@ -49,7 +49,7 @@ def mean_sum_and_std():
               {'mean':mean,
                'sum':sum,
                'std':{lenf <= 2:'Not computed',
-                      'else':stdev},},
+                      'else':stdev}},
               jsonify)
 
 
