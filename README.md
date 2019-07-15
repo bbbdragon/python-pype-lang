@@ -89,7 +89,7 @@ To run any of these files from a command line, just type in the quoted command a
 ```
 python3 quicksort.py
 ```
-In addition, there is an example of a Docker container, described in `examples/services/Dockerfile`, which will run the classifier service.  Assuming you have docker on your machine, you can run this with the script `examples/services/run_docker.sh`.  This means that you can readily deploy a pype microservice whenever you want, wherever you want.  
+In addition, there is an example of a Docker container, described in `examples/services/Dockerfile`, which will run the classifier service.  Assuming you have docker on your machine, you can run this with the script `examples/services/run_docker.sh`.  This means that you can readily deploy a pype microservice whenever you want, wherever you want.  You can test it with `test_classifier_service.sh`.
 
 # FAQ
 
