@@ -74,7 +74,11 @@ Now you are ready to test pype, in Python3:
 ```
 # Examples
 
-Before wading into the documentation, it may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Please be sure to install `requirements.txt` to ensure these examples work.  Currently, there is an implementation of:
+Before wading into the documentation, it may be a good idea to look at the `examples` directory to get a feel for how pype really works.  
+
+A full tour of the language is available in `examples/tour.py`, which runs major types of pype expressions and explains the results.  It is best to start here.
+
+Other examples demonstrate how to implement recursion in pype, and how to build simple microservices in the language, including Machine Learning services:
 
 * recursive quicksort - `examples/quicksort.py`
 * recursive Fibonacci - `examples/fibonacci.py`
@@ -82,7 +86,6 @@ Before wading into the documentation, it may be a good idea to look at the `exam
 * statistics service - `examples/services/stats_service.py` This script runs a Flask service that computes the sum, mean, and standard deviation of a group of numbers.  After the server is run, it can be tested with `examples/services/test_stats_service.sh`.  
 * classifier service - `examples/services/classifier_service.py` This script runs a Flask service that runs a Random Forest classifier.  It is useful if you want to deploy lightweight machine learning microservices.  After the server is run, it can be tested with `examples/services/test_classifier_service.sh`. 
 To run any of these files from a command line, just type in the quoted command at the beginning of the file.  For example, `quicksort.py` can be run by typing:
-
 ```
 python3 quicksort.py
 ```
