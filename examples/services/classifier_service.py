@@ -68,13 +68,12 @@ def classify():
 
     global MODEL
 
-    js=request.get_json(force=True)
+    texts=request.get_json(force=True)['texts']
 
-    return p( js,
-              _['texts'],
+    return p( texts,
               MODEL['vectorizer'].transform,
               MODEL['classifier'].predict,
-              (zip,_,js['texts']),
+              (zip,_,texts),
               [{'label':_0,
                 'text':_1}],
               jsonify)
