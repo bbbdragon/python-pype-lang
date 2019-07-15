@@ -74,7 +74,7 @@ Now you are ready to test pype, in Python3:
 ```
 # Examples
 
-Before wading into the documentation, it may be a good idea to look at the `examples` directory to get a feel for how pype really works.  
+Before wading into the documentation, it may be a good idea to look at the `examples` directory to get a feel for how pype really works.  Everything is explained blow-by-blow, and I'd recommend you start programming by copy-pasting some of these examples.
 
 A full tour of the language is available in `examples/tour.py`, which runs major types of pype expressions and explains the results.  It is best to start here.
 
@@ -863,6 +863,12 @@ One way I evaluate a coding style is to write a piece of code and then revisit i
 Maybe other developers will complain about your using pype, but don't take it personally.  Office developers take about as much interest in one anothers' code as 3-year-olds take in one anothers' fingerpainting.  Besides, if they can't understand what a map, reduce, or filter is, should they really be developing?  You'll get your work done 10x faster, anyway, so the bosses will love you - or fire you for being too productive.
 
 But this isn't an advertisement.  I genuinely do not care if you use pype or not - it works for me, not so well for others.  And, in huge amounts, the hyper-concise notation can get you lost.  See above on how to make your code maintainable.  
+
+* "Can I build microservices in pype?"
+
+Pype was designed for rapid (and rabid) implementation of microservices.  You can see several examples of microservices in the `examples/services` directory.  Since pype excells at transforming JSON's, a routing funciton can simply take the request JSON, make the necessary transformations, and send it back.  When you apply the `optimize` decorator, you'll find that these services are both performant and scalable.  I've included a small Dockerfile to show how you can Dockerize a service to deploy on AWS Fargate and other production-type server environments.  
+
+By the way, optimized pype and gunicorn are best of friends.  
 
 * "Can you dynamically generate pype code"
 
