@@ -866,9 +866,9 @@ But this isn't an advertisement.  I genuinely do not care if you use pype or not
 
 * "Can I build microservices in pype?"
 
-Pype was designed for rapid (and rabid) implementation of microservices.  You can see several examples of microservices in the `examples/services` directory.  Since pype excells at transforming JSON's, a routing funciton can simply take the request JSON, make the necessary transformations, and send it back.  When you apply the `optimize` decorator, you'll find that these services are both performant and scalable.  I've included a small Dockerfile to show how you can Dockerize a service to deploy on AWS Fargate and other production-type server environments.  
+Heck yes you can!  Pype was designed for rapid (and rabid) implementation of microservices.  You can see several examples of microservices in the `examples/services` directory.  Since pype excells at transforming JSON's, a routing funciton can simply take the request JSON, make the necessary transformations, and send it back.  When you apply the `optimize` decorator, you'll find that these services are both performant and scalable.  I've included a small Dockerfile to show how you can Dockerize a service to deploy on AWS Fargate and other production-type server environments.  
 
-By the way, optimized pype and gunicorn are best of friends.  
+By the way, optimized pype and gunicorn are best of friends.  Vote for Pedro.
 
 * "Can you dynamically generate pype code"
 
