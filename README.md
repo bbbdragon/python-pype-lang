@@ -34,9 +34,19 @@ Pype is distributed under the MIT license.
 
 # Requirements
 
-Pype uses Python3.6.
+Pype uses Python3.6 or above.
 
 # Installation
+
+## Using Pip3
+
+You can install pype simply by typing:
+```
+pip3 python-pype-lang
+```
+Ensure you are running under root if you do not have proper permissions.  
+
+## From Source
 
 Clone this repo and cd into the directory `pype`.  To install on your local machine, under root, run:
 
