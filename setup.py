@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     LONG_DESCRIPTION=fh.read()
 
-setup(name='pype',
+setup(name='python-pype-lang',
       version='1.0',
       description='Python-integrated functional programming language - Provides easy-to-use pseudo-macros for common functional programming tasks such as maps, reduces, filters, conditionals, dictionary manipulations, and list manipulations..',
       long_description=LONG_DESCRIPTION,
@@ -12,12 +12,11 @@ setup(name='pype',
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.6',
-        'Operating System :: Ubuntu 18+',
-        'Topic :: Functional Programming :: Macros',
+        'Operating System :: OS Independent',
       ],
       keywords='functional map reduce filter lambda',
       url='https://github.com/bbbdragon/python-pype-lang',
-      author='bbbdragon',
+      author='Bennett Charles Bullock',
       author_email='bennettbullock36@gmail.com',
       license='MIT',
       packages=find_packages(),
