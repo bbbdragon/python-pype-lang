@@ -1,6 +1,7 @@
 ###
 # USAGE: python3 pype.py
 ###
+name='pype'
 from functools import reduce
 from collections import Iterable,Sequence,Mapping,Hashable,Container
 from pype.helpers import *
