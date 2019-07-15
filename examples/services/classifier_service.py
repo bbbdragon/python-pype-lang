@@ -12,7 +12,7 @@ send it a list of texts via the 'classify' route.  This service can be tested us
 
 ./test_classifier_service.sh
 '''
-from flask import Flask,request,Response,jsonify
+from flask import Flask,request,jsonify
 from pype import pype as p
 from pype import _,_0,_1,_p
 from pype import _assoc as _a
