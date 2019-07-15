@@ -15,7 +15,8 @@ def demo():
           "this will give you an idea of the full range of what pype can do.")
     print("In the printout, the >>> separates the topics of this tour.")
     print("The === sign encoloses two values: an optional variable definition, "
-          "the expression, and right below it the evaluation of that expression.")
+          "the expression, and right below it the evaluation of that expression. "
+          "The *** sign demonstrates an equality between two expressions." )
     print("="*30)
 
     call_me=lambda : 1
@@ -256,7 +257,7 @@ def demo():
          
     print('>'*30)
 
-    print('='*30)
+    print('*'*15)
     print('add1=lambda x:x+1')
     print('pype([1,2,3,4],[add1]')
 
@@ -281,7 +282,7 @@ def demo():
 
     assert(x == {1:add1(1),2:add1(2)})
 
-    print('='*30)
+    print('*'*15)
     print('add1=lambda x:x+1')
     print('pype({1:1,2:2},[add1]) == {1:add1(1),2:add1(2)}')
     print(pype({1:1,2:2},[add1]) == {1:add1(1),2:add1(2)})
@@ -324,7 +325,7 @@ def demo():
 
     assert(x == 3)
 
-    print('='*30)
+    print('*'*15)
     print('sm=lambda x,y:x+y')
     print('pype({1:1,2:2},[(sm,),]) == 1 + 2')
     print(pype({1:1,2:2},[(sm,),]) == 1 + 2)
@@ -341,7 +342,7 @@ def demo():
 
     assert(x == 6)
 
-    print('='*30)
+    print('*'*15)
     print('sm=lambda y,x:x+y')
     print('pype([1,1,1],[(sm,),3]) == 3 + 1 + 1 + 1')
 
@@ -360,9 +361,7 @@ def demo():
 
     assert(x == 9)
 
-    sys.exit(1)
-
-    print('='*30)
+    print('*'*15)
     print('add1=lambda x:x+1')
     print('sm=lambda x:x+1')
     print('pype([1,1,1],[(sm,),3,[add1]]) == 3 + 2 + 2 + 2')
@@ -380,7 +379,9 @@ def demo():
           "works.")
     print('>'*30)
 
-        
+    print('='*30)
+    print("If the accum matches one of the keys exactly, we return the value for "
+          "that key.")
     print('pype(1,{1:"one",2:"two","else":"nothing"})')
 
     x=pype(1,{1:"one",2:"two","else":"nothing"})
@@ -389,34 +390,58 @@ def demo():
 
     assert(x == "one")
 
+    print('*'*15)
+    print('pype(1,{1:"one",2:"two","else":"nothing"}) == "one"')
+    print(pype(1,{1:"one",2:"two","else":"nothing"}) == "one")
+
     print('='*30)
+    print("If the accum does not match one of the keys exactly, and there are no "
+          "fArgs in the dictionary keys, we return the 'else' value.")
+    print('pype(1,{1:"one",2:"two","else":"nothing"})')
 
-    gt1=lambda x: x > 1
-    lt3=lambda x: x < 3
+    x=pype(34,{1:"one",2:"two","else":"nothing"})
 
-    print('pype(1,{gt1:"greater 1", lt3:"less than three", "else":_')
+    print(x)
 
-    x=pype(1,{gt1:"greater 1", lt3:"less than three", "else":_})
+    assert(x == "nothing")
+
+    
+    print('='*30)
+    print("Now, we are going to add some fArgs.  Remember, these fArgs are PypeVal "
+          "expressions, which means they are hashable by the Python interpreter and "
+          "are evaluated by the pype interpreter.")
+
+    print('pype(1,{_ > 1:"greater 1", _ < 3:"less than three", "else":_})')
+
+    x=pype(1,{_ > 1:"greater 1", _ < 3:"less than three", "else":_})
 
     print(x)
 
     assert(x == 'less than three')
 
-    print('pype(5,{gt1:"greater 1","else":_')
+    print('*'*15)
+    print('pype(1,{_ > 1:"greater 1", _ < 3:"less than three", "else":_}) == "less than three"')
 
-    x=pype(-5,{gt1:"greater 1","else":_})
+    print('='*30)
+    print("If the value does not evaluate true for any fArgs, and is not equal to any "
+          "of the keys, we return the 'else' value.")
+    print('pype(-5,{_ > 1:"greater 1","else":_})')
+
+    x=pype(-5,{_ > 1:"greater 1","else":_})
 
     print(x)
 
     assert(x == -5)
 
+    print('='*30)
+    print("If an fArg is in the matching value, we evaluate that fArg on the value.")
+
     add2=lambda x: x+2
 
-    print('='*30)
+    print('add2=lambda x: x+2')
+    print('pype(5,{_ > 1:"greater 1","else":add1}')
 
-    print('pype(5,{gt1:"greater 1","else":add1')
-
-    x=pype(5,{gt1:add2,"else":add1})
+    x=pype(5,{_ > 1:add2,"else":add1})
 
     print(x)
 
@@ -432,7 +457,6 @@ def demo():
     
     assert(x == 3)
 
-
     #########
     # INDEX #
     #########
@@ -443,35 +467,40 @@ def demo():
 
     print('='*30)
 
+    print("Here we demonstrate the index feature, which can be used with a mirror, an "
+          "index arg, or any other Getter object.")
     ls=[1,2,3,4]
+    print('ls=[1,2,3,4]')
+    print('pype(ls,_[0]))')
 
-    print('pype(ls,(_,[0])))')
-
-    x=pype(ls,(_,[0]))
+    x=pype(ls,_[0])
 
     print(x)
     
     assert(x == 1)
 
     print('='*30)
+    print("This can also be used to access dictionaries by keys.")
 
     dct={1:2,3:4}
+    print('dct={1:2,3:4}')
+    print('pype(dct,_[3]))')
 
-    print('pype(dct,(_,[3]))')
-
-    x=pype(dct,(_,[3]))
+    x=pype(dct,_[3])
 
     print(x)
     
     assert(x == 4)
 
-    bigLS=[[1,2,3],[2,3,4]]
-
+    sys.exit(1)
+    
     print('='*30)
-
+    print("Now, we are going to demonstrate how to access elements of embedded lists.")
+    bigLS=[[1,2,3],[2,3,4]]
+    print('bigLS=[[1,2,3],[2,3,4]]')
     print('pype(bigLS,(_,[0],[1]))')
 
-    x=pype(bigLS,(_,[0],[1]))
+    x=pype(bigLS,_[0][1])
 
     print(x)
 
