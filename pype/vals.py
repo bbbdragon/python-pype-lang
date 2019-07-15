@@ -292,6 +292,11 @@ class Quote(object):
 
         return 'Q('+str(self.v)+')'
 
+
+def l(*args):
+
+    return PypeVal((*args,))
+
 lenf=PypeVal(len)
 empty=lambda ls: len(ls) == 0
 empty_1=lambda tup: len(tup[1]) == 0
@@ -305,3 +310,5 @@ quote=lambda v: Quote(v)
 def not_empty(v):
 
     return len(v) != 0
+
+
