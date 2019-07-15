@@ -7,6 +7,7 @@ setup(name='pype',
       version='1.0',
       description='Python-integrated functional programming language - Provides easy-to-use pseudo-macros for common functional programming tasks such as maps, reduces, filters, conditionals, dictionary manipulations, and list manipulations..',
       long_description=LONG_DESCRIPTION,
+      long_description_content_type="text/markdown",
       classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
