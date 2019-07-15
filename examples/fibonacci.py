@@ -36,6 +36,12 @@ def fib(n):
     _['fib1']+_['fib2']
 
     This adds the two values in the previous dict build.  
+
+    Note that we could also have written it as:
+
+    'else':v((fib,n-1))+(fib,n-2)
+
+    but this is ugly, in my opinion.
     '''
     return p( n,
               {_ <= 1:_,
