@@ -49,7 +49,7 @@ def quicksort1(ls):
 def quicksort2(ls):
     '''
     This is a super-concise implementation of quicksort, but has the exact same
-    functionality as quicksort 1.  Two differences:
+    functionality as quicksort1.  Two differences:
 
     {len:...
     
@@ -57,7 +57,11 @@ def quicksort2(ls):
     evaluates as bool(len(ls)).  So if the list is empty, as in len([]), this will 
     evaluate as 0, and bool(0) will be evaluated as False.  If the list is not empty,
     then the expression will be evaluated as True.  So, if the list is not empty,
-    we run quicksort recursively.
+    we run quicksort recursively ...
+
+    'else':_}
+
+    ... otherwise we return the empty list.
 
     l(quicksort2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
 
@@ -113,11 +117,12 @@ def quicksort2(ls):
                'else':_},
             )
 
+
 if __name__=='__main__':
             
     ls=[86,23,1,4,-1,2,5]
 
     print(f'Before the sort, the list is {ls}')
-    print(f'The sorted list is for verbose quicksort is {quicksort1(ls)}') 
-    print(f'The sorted list is for concise quicksort is {quicksort2(ls)}') 
+    print(f'The sorted list is for verbose recursive quicksort is {quicksort1(ls)}') 
+    print(f'The sorted list is for concise recursive quicksort is {quicksort2(ls)}') 
 
