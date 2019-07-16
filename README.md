@@ -393,29 +393,19 @@ def CallMe():
     return 'hi'
   def add1(self,x):
   	return x+1
-	
-pype(CallMe(),(_,'call')) <=> CallMe().call() <=> 'hi'
+
+pype(CallMe(),_.call) <=> CallMe().call() <=> 'hi'
 ```
 2. If the object lambda is not the first element of a lambda, and the string refers to a field of the accum, then the value of that field is returned:
 ```
-pype(CallMe(),(_,'me')) <=> CallMe().me <=> 'me'    
+pype(CallMe(),_.me) <=> CallMe().me <=> 'me'    
 ```
 3. If the object lambda is the first element of a lambda, and the string refers to a member function of the accum, then that function is applied to the other arguments of the lambda:
 ```
-pype(CallMe(),((_,'add1'),1)) <=> CallMe().add1(1) <=> 2
+pype(CallMe(),(_.add1,1)) <=> CallMe().add1(1) <=> 2
 ```
-`Getter` and `PypeVal` objects override the `__getattr__` function to return an object lambda.  This means we can create object lambdas in the following way:
-```
-from pype.vals import Getter,PypeVal
+`Getter` and `PypeVal` objects override the `__getattr__` function to return an object lambda.  
 
-_.add1 <=> (_,'add1')
-_.call <=> (_,'call')
-```
-This makes our syntax a bit more readable:
-```
-pype(CallMe(),_.call) <=> pype(CallMe(),(_,'call')) <=> CallMe().call() <=> 'hi'
-pype(CallMe(),(_.add1,1)) <=> pype(CallMe(),((_,'add1'),1)) <=> CallMe().add1(1) <=> 2
-```
 ## Indexes
 
 `(mirror,[<expression|fArg>],+)`
