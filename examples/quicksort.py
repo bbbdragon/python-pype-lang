@@ -69,7 +69,8 @@ def quicksort2(ls):
     This is because the resulting expression would not compile, since Python does not
     allow tuples to be added to lists.  We need to "trick" the Python interpreter into
     building an expression which is compileable in Python, hashable, and interpretable
-    by Pype.
+    by Pype.  When a PypeVal is used adjacent to an overriden operator, it creates a
+    LamTup, which the pype interpreter can evaluate.
 
     l is a shorthand for declaring a PypeVal for a lambda expression:
 
