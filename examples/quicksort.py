@@ -89,7 +89,7 @@ def quicksort2(ls):
         [5])
 
     In other words, call quicksort2 on every element in the list under 5, and 
-    concatenate it to [5].
+    concatenate the resulting list to [5].
 
     The full printout for the expression would be:
 
