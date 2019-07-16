@@ -56,7 +56,8 @@ def quicksort2(ls):
     Since the keys of a swtich dict are evaluated as booleans, the len function
     evaluates as bool(len(ls)).  So if the list is empty, as in len([]), this will 
     evaluate as 0, and bool(0) will be evaluated as False.  If the list is not empty,
-    then the expression will be evaluated as True.  
+    then the expression will be evaluated as True.  So, if the list is not empty,
+    we run quicksort recursively.
 
     l(quicksort2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
 
