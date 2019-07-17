@@ -316,6 +316,12 @@ def zip_to_dct(tups,keys):
 
     return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
 
+
+def dict_from_tups(tups,*keys):
+
+    return [dict(zip(keys,tup)) for tup in tups]
+
+
     
 def middle(ls):
 
@@ -325,3 +331,50 @@ def middle(ls):
 
     return ls[int(len(ls)/2)]
 
+
+def range_list(n,m):
+
+    return list(range(n,m))
+
+def range_list(n,m):
+
+    return list(range(n,m))
+
+
+def zip_to_dicts(tups,*keys):
+
+    return [dict(zip(keys,tup)) for tup in tups]
+
+
+def get_or_false(dct,*keys):
+
+    if not dct:
+
+        return False
+
+    d=dct
+
+    for key in keys:
+
+        if key not in d:
+
+            return False
+
+        d=d[key]
+
+    return d
+
+
+def get_by_key_or_false(dct,dctKey,*keys):
+
+    d=dct
+
+    for key in keys:
+
+        if key not in d:
+
+            return False
+
+        d=d[key]
+
+    return d[dctKey]
