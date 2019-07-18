@@ -282,6 +282,11 @@ def apply_partitions(seq,grammar):
 
     Let's go through apply_partition first.  
 
+    begin1=partition['begin1'] ...
+
+    This is a perfect example of how to use the function body to make your code
+    more presentable.
+  
     (get_lhs,begin1,begin2,end1,end2,_,grammar),
 
     We get the lhs for the partition.
