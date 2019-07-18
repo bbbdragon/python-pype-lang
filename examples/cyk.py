@@ -22,7 +22,6 @@ from pype import _p
 from pype import Quote as q
 from itertools import product
 from pype.helpers import *
-from pype.vals import lenf
 
 '''
 In the grammar string, we define a context-free grammar.  The first symbol in each
