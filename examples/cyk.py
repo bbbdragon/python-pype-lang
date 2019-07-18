@@ -21,6 +21,7 @@ from pype import _merge as _m
 from pype import _p 
 from pype import Quote as q
 from itertools import product
+from pype.vals import lenf
 from pype.helpers import *
 
 '''
