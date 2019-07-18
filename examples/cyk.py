@@ -245,7 +245,7 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
     in the main JSON.
 
     {_['lhs']:_p( _a('tree',_l(_['lhs'],_['tree1'],_['tree2'])),
-                            _d('rhs1','rhs2','tree1','tree2')),
+                  _d('rhs1','rhs2','tree1','tree2')),
      'else':False}
 
     Remember, in a switch dict, if the key evaluates as True, then the corresponding
