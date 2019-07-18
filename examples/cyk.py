@@ -314,6 +314,10 @@ def apply_partitions(seq,grammar):
     Basically, the reduce goes over each partition, sees if there is an lhs that can
     be added to the table, and adds it to the table if it can.  Otherwise, it just
     returns the table, and the same thing happens with the next partition.
+
+    It is important to note that, because pype dict manipulations do not guarantee
+    imutability, the reduce is not generating a new copy of the table with each 
+    partition, but rather an altered version of the original table.
     '''
     def apply_partition(table,partition):
 
