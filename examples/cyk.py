@@ -22,7 +22,6 @@ from pype import _p
 from pype import Quote as q
 from itertools import product
 from pype.helpers import *
-from pype import build_pype as bp
 from pype.vals import lenf
 
 '''
