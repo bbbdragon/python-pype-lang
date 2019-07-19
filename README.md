@@ -12,7 +12,7 @@ result=get_result_finally(df)
 ```
 It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  Functional programming was something extremely powerful for me.  I felt as if I switched from a bee-bee gun to an Uzi ... no, a gatling gun.  Before FP, difficult, snarling problems only got angrier as I shot at them.  Now, they vanished into a peaceful, quiet, red mist.  
 
-But I found another dilemna.  Switching languages in the office is a big no-no, and even if I wanted to use Clojure I still needed Python's extremely mature libraries.  So I started to code funcitonally in Python.  Here's how pype came about.
+But I found another dilemna.  Switching languages in the office is a big no-no, and even if I wanted to use Clojure I still needed Python's extremely mature libraries, embedded in microservices that the main Clojure app called through HTTP.  So I started to code functionally in Python.  Here's how pype came about.
 
 I realized that a series of transformations on a data structure could be implemented in Python as a reduce, so I could build a function, pype, to take a starting value and apply functions to it in succession:
 ```
@@ -25,7 +25,7 @@ Then, I realized I could do manipulations of dictionaries and lists, so long as 
 ```
 ls=[{"name":"bob","age":32},{"name":"susan","age":25},{"name":"joe","age":23},{"name":"mike","age":23}]
 ```
-Let's say I wanted to find the namesbuild a dictionary whose keys were names and whose values were lists of ages rounded down to 10 - in other words, who was in their twenties, thrities, etc.  In imperative Python, using defaultdict I could do this as:
+Let's say I wanted to build a dictionary whose keys were ages rounded down to 10 and whose values were lists of names - in other words, who was in their twenties, thrities, etc.  This would look like `{30:["bob"],20:["susan","joe","mike"]}`.  In imperative Python, using defaultdict I could do this as:
 ```
 from collections import defaultdict
 
@@ -33,11 +33,10 @@ aggregation=defaultdict(lambda:list())
 
 for js in ls:
 
-  roundedTo10=int(js['age']/10)
-  aggregation[js['name']].append(roundedTo10)
+  age,name=js['age'],js['name']
+  roundedTo10=int(age/10)
+  aggregation[roundedTo10].append(name)
 ```
-aggregation is now `{30:["bob"],20:["susan","joe","mike"]}`.
-
 Using the original pype function, it would be:
 ```
 from functools import reduce
@@ -46,13 +45,13 @@ def add_to_ls_dct(dct,js):
 
   age,name=js['age'],js['name']
   
-  dct[key].append(val)
+  dct[age].append(name)
   
   return dct
 
 
 pype( ls,
-      lambda ls:[*js,'age':int(js['age']/10)} for js in ls],
+      lambda ls:[{*js,'age':int(js['age']/10)} for js in ls],
       lambda ls:reduce(add_to_ls_dct,ls,{}),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
@@ -76,7 +75,7 @@ pype( ls,
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
-But at this point, the Python notation on the lambda was just a bit too verbose.  So I told the pype function that, whenever it saw afunction in square brackets, it would apply that function to every element of the previous iterable structure:
+But at this point, the Python notation on the lambda was just a bit too verbose.  So I told the pype function that, whenever it saw a function in square brackets, it would apply that function to every element of the previous iterable structure:
 ```
 pype( ls,
       [round_age],
@@ -209,14 +208,13 @@ To re-install, you may need to remove the `egg-link` file in your `dist-packages
 ```
 rm /usr/local/lib/python3.6/dist-packages/pype.egg-link 
 ```
-
-Now you are ready to test pype, in Python3:
-
+Now you are ready to test pype in Python3:
 ```
 >>> from pype import pype
 >>> add1=lambda x: x+1
->>> pype(1,add1)
-2
+>>> mult2=lambda x: x*2
+>>> pype(1,add1,mult2)
+4
 ```
 # Examples
 
@@ -254,11 +252,11 @@ Don't get me wrong, I love these languages.  They're awesome.  But ... try to co
 
 There is a good LISP library in Python called hy, although seems to have some perfomance issues.  Pype will never be Lisp, ever.  To paraphrase the Zefiro Anejo motto, "hasta el repl, es una obra de arte".  Lisp is a work of art.  Lisp is Mozart.  Use it if you can.  Or use pype.
 
-I think there are three main benefits to using pype over these .  First, you have the richness of Python (pandas, numpy, scikit-learn, various Neural Network libraries) at your fingertips, without having to enclose them in microservices. Second, you can embed pype into any python code you want.  Thirdly, I've found that the expressions for maps, reduces, filters, etc. are actually more concise than many LISP or Clojure macros.
+I think there are three main benefits to using pype over these .  First, you have the richness of Python (pandas, numpy, scikit-learn, various Neural Network libraries) at your fingertips, without having to enclose them in microservices. Second, you can embed pype into any python code you want.  Thirdly, I've found that the expressions for maps, reduces, filters, etc. are actually more concise than many LISP or Clojure expressions.
 
-What does this last thing mean?  When you're programing, there's the thought, and there's the code.  Most of programming is going through the mental overhead of translating thought into code.  More verbose languages require more overhead.  But the problem is, you think more slowly, because you try a new idea, translate/implement, try another idea, translate/implement, until you get to the right idea and the right implementation.  And, half the time, your thinking is wrong.  
+Why is conciseness valuable?  When you're programing, there's the thought, and there's the code.  Most of programming is going through the mental overhead of translating thought into code.  More verbose languages require more overhead.  But the problem is, you think more slowly, because you try a new idea, translate/implement, try another idea, translate/implement, until you get to the right idea and the right implementation.  And, half the time, your thinking is wrong.  
 
-Because of the implementation's succinctness, debugging pype reduces to two problems - getting the syntax right and getting the thought right.  You can do that, or you can program C++ at an investment bank.  It's your life.    
+Because of the implementation's succinctness, debugging pype reduces to two problems - getting the syntax right and getting the thought right.  In other words, it's the difference between thinking for 15 minutes and coding for 18 hours or coding for 30 minutes and thinking for 24 hours.  Or you can program C++ at an investment bank.  It's your life.    
 
 * "Is pype readable?"
 
@@ -270,7 +268,7 @@ But this isn't an advertisement.  I genuinely do not care if you use pype or not
 
 * "Can I build microservices in pype?"
 
-Heck yes you can!  I just told you about the Dockerfile, gosh!!!  Pype was designed for rapid (and rabid) implementation of microservices.  You can see several examples of microservices in the `examples/services` directory.  Since pype excells at transforming JSON's, a routing funciton can simply take the request JSON, make the necessary transformations, and send it back.  When you apply the `optimize` decorator, you'll find that these services are both performant and scalable.  I've included a small Dockerfile to show how you can Dockerize a service to deploy on AWS Fargate and other production-type server environments.  
+Heck yes you can!  I just told you about the Dockerfile, gosh!!!  Pype was designed for rapid (and rabid) implementation of microservices.  You can see several examples of microservices in the `examples/services` directory.  Since pype excells at transforming JSON's, a routing funciton can simply take the request JSON, make the necessary transformations, and send it back.  When you apply the `optimize` decorator, you'll find that these services are both performant and scalable.  The small Dockerfile lets you Dockerize a service to deploy on AWS Fargate and other production-type server environments.  
 
 By the way, optimized pype and gunicorn are best of friends.  Vote for Pedro.
 
