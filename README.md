@@ -72,7 +72,7 @@ def round_age(js):
 
 pype( ls,
       lambda ls:[round_age(js) for js in ls],
-      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
@@ -80,7 +80,7 @@ But at this point, the Python notation on the lambda was just a bit too verbose.
 ```
 pype( ls,
       [round_age],
-      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:v['name'] for (k,v) in dct.items()}
      )
 ```
@@ -101,7 +101,7 @@ def round_age(js):
  
 pype( ls,
       [_a('age',round_age)],
-      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:v['name'] for (k,v) in dct.items()}
      )
 ```
@@ -113,7 +113,7 @@ def round_age(age):
  
 pype( ls,
       [_a('age',(round_age,_['age'])],
-      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
@@ -121,7 +121,7 @@ Now, the expression _a('age',(round_age,_['age'])) says, "extract the 'age' valu
 ```
 pype( ls,
       [_a('age',(int,_['age']/10)],
-      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
