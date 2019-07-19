@@ -167,7 +167,7 @@ In [_['name']], the enclosing square brackets mean "go through the list and appl
 
 It was this process that turned pype from a simple reduce function into something much more expressive.
 
-You may say this is "syntactic sugar".  I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots yourYou  teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
+You may say this is "syntactic sugar".  I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
 
 I didn't want "syntactic sugar".  Sugar doesn't change things deeply, make you see things differently.  No, motherfucker, I wanted "syntactic plutonium".    
 
