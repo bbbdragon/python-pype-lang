@@ -225,17 +225,9 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
 
     then get_or_false(table,0,0) will return {'lhs':'Det','tree':['Det']}.  However,
     with this particular table, get_or_false(table,0,1) will return False, because
-    no embedded element exists in the JSON.  
-
-    So, we find if there is an rhs1 in the table beginning at begin1 and ending at 
-    end1, and do the same thing for rhs2.  We do a dict build for scoping.
-
-    _a('tree1',(get_or_false,_['rhs1'],'tree')),
-    _a('tree2',(get_or_false,_['rhs2'],'tree')),
-
-    If the first argument of get_or_false is False, then the function returns False.
-    Otherwise, we recover the trees from rhs1 and rhs2 in the table, and add them to
-    the JSON initialized above.
+    no embedded element exists in the JSON.  We store 'rhs1' and 'rhs2' in a dict build
+    because we are going to reference them in the next two lines - this how we can
+    use dict builds for scoping.
 
     _a('lhs',(get_or_false,grammar,
                            (get_or_false,_['rhs1'],'lhs'),
@@ -245,8 +237,10 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
     first rhs, and the lhs of rhs2 is the second lhs.  We assign the result to 'lhs'
     in the main JSON.
 
-    {_['lhs']:_p( _a('tree',_l(_['lhs'],_['tree1'],_['tree2'])),
-                  _d('rhs1','rhs2','tree1','tree2')),
+     {_['lhs']:_p( _a('tree',_l(_['lhs'],
+                                (get_or_false,_['rhs1'],'tree'),
+                                (get_or_false,_['rhs1'],'tree')),
+                            _d('rhs1','rhs2')),
      'else':False}
 
     Remember, in a switch dict, if the key evaluates as True, then the corresponding
@@ -255,20 +249,20 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
     False.
 
     Otherwise, we add an additional field, 'tree' to the main JSON, which is a list 
-    containing the lhs symbol, followed by tree1 and tree2, which are also lists.  
+    containing the lhs symbol, followed by the trees for rhs1 and rhs 2, which are 
+    also lists.  
 
-    Finally, we get rid of fields we don't need - 'rhs1','rhs2','tree1',and 'tree2' - 
-    and return the JSON.
+    Finally, we get rid of 'rhs1','rhs2', which we don't need and return the JSON.
     '''
     return p( table,
               {'rhs1':(get_or_false,_,begin1,end1),
                'rhs2':(get_or_false,_,begin2,end2)},
-              _a('tree1',(get_or_false,_['rhs1'],'tree')),
-              _a('tree2',(get_or_false,_['rhs2'],'tree')),
               _a('lhs',(get_or_false,grammar,
                                      (get_or_false,_['rhs1'],'lhs'),
                                      (get_or_false,_['rhs2'],'lhs'))),
-              {_['lhs']:_p( _a('tree',_l(_['lhs'],_['tree1'],_['tree2'])),
+              {_['lhs']:_p( _a('tree',_l(_['lhs'],
+                                         (get_or_false,_['rhs1'],'tree'),
+                                         (get_or_false,_['rhs1'],'tree')),
                             _d('rhs1','rhs2','tree1','tree2')),
                'else':False}
             )
