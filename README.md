@@ -16,6 +16,12 @@ But I found another dilemna.  Switching languages in the office is a big no-no, 
 
 I realized that a series of transformations on a data structure could be implemented in Python as a reduce, so I could build a function, pype, to take a starting value and apply functions to it in succession:
 ```
+from functools import reduce
+
+def pype(accum,*fArgs):
+
+  return reduce(lambda accum,f:f(accum),fArgs)
+  
 add1=lambda x: x+1
 mult5=lambda x:x*5
 pype(2,add1,mult5)
