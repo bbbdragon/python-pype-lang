@@ -445,55 +445,20 @@ pp=build_pype(add1,add1,add1)
 
 pp(1) <=> pype(1,add1,add1,add1) <=> 4
 ```
+## Filters
 
-## AND Filters
-
-`[[boolFArg,+]]`
-
-The accum is a sequence or mapping.  If the accum is a sequence, the filter operates on all elements of the sequence, and returns a list.  If it is a mapping, the filter operates on all values of the mapping, and returns a dictionary.
-
-The AND filter returns all values in the sequence or mapping for which all fArgs can be evaluated as true:
-```
-gt1=lambda x: x>1
-ls=[0,-1,2,3,1,9]
-pype(ls,[[gt1]]) <=> [el for el in ls if gt1(el)] <=> [el for el in ls if el > 1] <=> [2,3,9]
-lt9=lambda x: x < 9
-pype(ls,[[gt1,lt9]]) <=>  [el for el in ls if gt1(el) and lt9(el)]  <=> [el for el in ls if el > 1 and el < 9] <=> [2,3]
-```
-It is useful to note that the fArgs do not need to return truth values.  THey are simply evaluated as truth values.  That means that the map `[[_]]` means "every element in the sequence or dict which, when evaluated as a boolean, is true".  This makes this expression useful for filtering out `False` values, `None` values, `0` values, or empty sets, dictionaries, or lists:
-```
-ls=[2,3,4,0,[],{},set(),None,3,False]
-pype(ls,[[_]]) <=> [el for el in ls if bool(el)] <=> [2,3,4,3]
-```
-Note there is syntactic ambiguity with a map, if, say, we wanted to apply a map of maps to a list of lists.  In such a case, the AND filter takes precedence.  If we wanted to build an expression, we would use `build_pype` instead:
-```
-add1ToLs=build_pype([add1])
-
-pype([[1,2,3],[4,5,6]],[add1ToLs]) <=> [pype([1,2,3],[add1]),pype([3,4,5],[add1])] <=> [[2,3,4],[4,5,6]]
-```
-I am seriously reconsidering switching out the syntax of the AND filter, since it is ambiguous - if you wanted to apply a mapping every element of a list of lists, for example, this is not yet allowable in pype - the workaround is to use `build_pype` to use the embedded mapping:
-```
-from pype import pype,build_pype as bp
-add1=lambda x: x+1
-apply_add1=bp([add1])
-
-pype([[1,2,3],[4,5,6]],[apply_add1]) <=> [[2,3,4],[5,6,7]]
-```
-But my plans are to replace the AND and OR filters, use boolean operators.
-## OR Filters
-
-`{hashBoolFArg,+}`
+`{hashBoolFArg}`
 
 The accum is a sequence or mapping.  If the accum is a sequence, the filter operates on all elements of the sequence, and returns a list.  If it is a mapping, the filter operates on all values of the mapping, and returns a dictionary.
 
 Because the expression uses a set, you must ensure that your fArgs are hashable - if they contain lists or dictionaries, you should wrap them using `build_pype`.
 
-The AND filter returns all values in the sequence or mapping for which any fArgs can be evaluated as true:
+The filter returns all values in the sequence or mapping for which any fArgs can be evaluated as true:
 ```
 gt1=lambda x: x>1
 eq0=lambda x: x == 0
 ls=[0,-1,2,3,1,9]
-pype(ls,{gt1,eq0}) <=> [el for el in ls if gt1(el) or eq0(el0)] <=> [el for el in ls if el > 1 or el == 0] <=> [0,2,3,9]
+pype(ls,{gt1},{eq0}) <=> [el for el in ls if gt1(el) or eq0(el0)] <=> [el for el in ls if el > 1 or el == 0] <=> [0,2,3,9]
 ```
 Note that when there is only one fArg, the expression is equivalent to an AND filter.
 
@@ -1014,10 +979,33 @@ The whole point of Pype is to allow you to program functionally while not having
 For hyper-fast numerical processing, I often find writing functions in imperative numpy and then using pype to define the overall program logic is the most effective.  But I'd like to add a module of numpy helpers.
 
 ## Loops within loops
-Because of the syntactic ambiguity of the AND filter (which I'm strongly considering getting rid of) is that, technically, it conflicts with embedded maps.  I just find '[[]]' so much easier to write than anything else.  But the pattern I have shown above, where you enclose an embedded loop in a `build_pype`, actually makes your code quite messy quite fast.  
+After getting rid of the AND filter, [[]] can now be used to run loops on embedded lists or dictionaries:
+```
+ls=[[1,2,3,3],[2,2]]
 
-I find it's much cleaner at this point to avoid `build_pype` and use `def` instead to write embedded loops.  I am working on inlining in the optimizer, so that this will not have any performance repercussions.
+p(ls,[[_+1]]) <=> [[2,3,4,4],[3,3]]
+```
+You can also use `build_pype`, but this actually makes your code quite messy quite fast: 
+```
+from pype import build_pype as bp
 
+ls=[[1,2,3,3],[2,2]]
+add1=bp([_+1])
+
+p(ls,[add1]) <=> [[2,3,4,4],[3,3]]
+```
+When you are doing two embedded loops, [[]] is fine.  However, after this, I'd recommend enclosing the embedded functionality in a new function or build_pype:
+```
+ls=[[[1,2],[3,3]],[[2,2]]]
+
+pype(ls,[[[_+1]]]) <=> [[[2,3],[4,4]],[[3,3]]]
+```
+Concise but confusing, so you might want to just "feel and func this":
+```
+inner_add1=bp([_+])
+
+pype(ls,[[inner_add1]])
+```
 ## Immutability
 
 Unfortunately, for performance reasons, we cannot ensure immutability.  This is because many of the dictionary operations act on the original dictionary passed to pype, rather than a copy of it.  Unlike the ultra-light lists and dictionaries of Clojure, Python simply cannot remain performant while creating new dictionaries or lists with every expression.  Therefore, if you are going to call pype more than once on the same data structure, you should use a deepcopy to ensure you are working on the same data.
