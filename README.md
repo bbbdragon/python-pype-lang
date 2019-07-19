@@ -134,7 +134,7 @@ def add_age_to_dct(dct,js):
   
 pype( ls,
       [_a('age',(int,_['age']/10)],
-      [(add_to_ls_dct,),defaultdict(lambda:list()],
+      [(add_age_to_dct,),defaultdict(lambda:list()],
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
