@@ -140,7 +140,7 @@ def add_age_to_dct(dct,js):
   
 pype( ls,
       [_a('age',(int,_['age']/10)],
-      [(add_age_to_dct,),defaultdict(lambda:list()],
+      [(add_age_to_dct,),defaultdict(lambda:list())],
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
@@ -156,7 +156,7 @@ pype( ls,
 ```
 _ refers to the previous value, and is sort of an "identity function", or placeholder for merge_ls_dct_no_key, since this function takes two arguments.
 
-In the final step, we want to iterate through every JSON in the list values, and extract the 'name' value.  We can do this by running another map.  When a map runs on a dictionary we apply the expression to the values.  For clarity, we will use the build_pype function to loop through the list and extract the name value from the JSON:
+In the final step, we want to iterate through every JSON in the list values, and extract the 'name' value.  We can do this by running another map.  When a map runs on a dictionary we apply the expression to the values.  For clarity, we could use the build_pype function to loop through the list and extract the name value from the JSON:
 ```
 from pype.helpers import merge_ls_dct_no_key
 from pype import build_pype as bp
@@ -169,8 +169,21 @@ pype( ls,
       [names]
      )
 ```
-In [_['name']], the enclosing square brackets mean "go through the list and apply the enclosing expression".  We know that this is a list of JSON's, each with a 'name' field, so we extract that field using _['name'].
-
+In [_['name']], the enclosing square brackets mean "go through the list and apply the enclosing expression".  We know that this is a list of JSON's, each with a 'name' field, so we extract that field using _['name'].  However, I've recently gotten rid of the AND filter, so now you can use [[]] to iterate through lists embedded in dictionaries:
+```
+pype( ls,
+      [_a('age',(int,_['age']/10)],
+      (merge_ls_dct_no_key,_,'age'),
+      [[_['name']]]
+     )
+```
+Or if you really wanted to get crazy:
+```
+pype( ls,
+      (merge_ls_dct_no_key,[_a('age',(int,_['age']/10)],'age'),
+      [[_['name']]]
+     )
+```
 It was this process that turned pype from a simple reduce function into something much more expressive.
 
 You may say this is "syntactic sugar".  I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
