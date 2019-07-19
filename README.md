@@ -10,7 +10,83 @@ df.dropna()
 ...
 result=get_result_finally(df)
 ```
-It was then, on a particular NLP-related project, that I discovered Clojure.  Functional programming revived my enthusiasm for coding - its cleanness, its expressiveness, its elegance.  I had been using a bee-bee gun to hunt dragons, and suddenly I was given an Uzi ... no, a gatling gun!  Difficult, snarling problems that only got more angry as I pelted them with bee-bees now seemed to evaporate in a quiet, peaceful, red mist.  
+It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  I soon realized that this could be implemented in Python as a reduce, so I could build a function, pype, to take a starting value and apply functions to it in succession:
+```
+add1=lambda x: x+1
+mult5=lambda x:x*5
+pype(2,add1,mult5)
+15
+```
+Then, I realized I could do manipulations of dictionaries and lists, so long as I defined the arguments as lambdas.  Let's say I had the following list:
+```
+ls=[{"name":"bob","age":32},{"name":"susan","age":25},{"name":"joe","age":23},{"name":"joe","age":23}
+```
+Let's say I wanted to find the namesbuild a dictionary whose keys were names and whose values were lists of ages rounded down to 10 - in other words, who was in their twenties, thrities, etc.  In imperative Python, using defaultdict I could do this as:
+```
+from collections import defaultdict
+
+aggregation=defaultdict(lambda:list())
+
+for js in ls:
+
+  roundedTo10=int(js['age']/10)
+  aggregation[js['name']].append(roundedTo10)
+```
+Using the original pype function, it would be:
+```
+from functools import reduce
+
+def add_to_ls_dct(dct,js):
+
+  age,name=js['age'],js['name'
+  
+  dct[key].append(val)
+  
+  return dct
+
+
+pype( ls,
+      lambda ls:[*js,'age':int(js['age']/10)} for js in ls],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+     )
+```
+Now, we are starting to get functional, but we are not quite at pype yet.  First, I'm noticing that the first expression is a map over every JSON in ls.  So, I could write a function called round_age:
+```
+from functools import reduce
+
+...
+
+def round_age(js):
+
+  js['age']=int(js['age']/10)
+  
+  return js
+  
+
+pype( ls,
+      lambda ls:[round_age(js) for js in ls],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+     )
+```
+But at this point, the Python notation on the lambda was just a bit too verbose.  So I told the pype function that, whenever it saw afunction in square brackets, it would apply that function to the previous structure:
+```
+pype( ls,
+      [round_age],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+     )
+```
+But wait, why did round_age have to be its own function?  Maybe I could automate the dictionary alteration, by using something similar to Clojure's assoc.  So I built an expression called _assoc, which would associate a key in the dictionary to a value:
+```
+from pype import _assoc as _a
+
+js={"name":"bob"}
+
+pype(js,
+     _('age',42)) => {"name":"bob","age":42})
+```
+This the _assoc takes the dictionary and adds a key. 
+So we have two operations on the list- a map and a reduce.  The map just alters each value of the list and the reduce rolls up the JSON into
+Functional programming revived my enthusiasm for coding - its cleanness, its expressiveness, its elegance.  I had been using a bee-bee gun to hunt dragons, and suddenly I was given an Uzi ... no, a gatling gun!  Difficult, snarling problems that only got more angry as I pelted them with bee-bees now seemed to evaporate in a quiet, peaceful, red mist.  
 
 But if I wanted to build Clojure applications, I would have to embed Python functionality in a microservice, and make HTTP calls or use websockets.  It worked well, but I didn't like the idea of using two different languages to do two different things.  Plus, employers don't really like it when you suddenly decide to switch to a language that no one else on the team knows.  I didn't want to leave Python, because of all its great libraries, so creating my own language was out.  What to do, what to do?
 
