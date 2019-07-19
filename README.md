@@ -10,7 +10,11 @@ df.dropna()
 ...
 result=get_result_finally(df)
 ```
-It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  I soon realized that this could be implemented in Python as a reduce, so I could build a function, pype, to take a starting value and apply functions to it in succession:
+It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  Functional programming was something extremely powerful for me.  I felt as if I switched from a bee-bee gun to an Uzi ... no, a gatling gun.  Before FP, difficult, snarling problems only got angrier as I shot at them.  Now, they vanished into a peaceful, quiet, red mist.  
+
+But I found another dilemna.  Switching languages in the office is a big no-no, and even if I wanted to use Clojure I still needed Python's extremely mature libraries.  So I started to code funcitonally in Python.  Here's how pype came about.
+
+I realized that a series of transformations on a data structure could be implemented in Python as a reduce, so I could build a function, pype, to take a starting value and apply functions to it in succession:
 ```
 add1=lambda x: x+1
 mult5=lambda x:x*5
@@ -19,7 +23,7 @@ pype(2,add1,mult5)
 ```
 Then, I realized I could do manipulations of dictionaries and lists, so long as I defined the arguments as lambdas.  Let's say I had the following list:
 ```
-ls=[{"name":"bob","age":32},{"name":"susan","age":25},{"name":"joe","age":23},{"name":"joe","age":23}
+ls=[{"name":"bob","age":32},{"name":"susan","age":25},{"name":"joe","age":23},{"name":"mike","age":23}]
 ```
 Let's say I wanted to find the namesbuild a dictionary whose keys were names and whose values were lists of ages rounded down to 10 - in other words, who was in their twenties, thrities, etc.  In imperative Python, using defaultdict I could do this as:
 ```
@@ -32,13 +36,15 @@ for js in ls:
   roundedTo10=int(js['age']/10)
   aggregation[js['name']].append(roundedTo10)
 ```
+aggregation is now `{30:["bob"],20:["susan","joe","mike"]}`.
+
 Using the original pype function, it would be:
 ```
 from functools import reduce
 
 def add_to_ls_dct(dct,js):
 
-  age,name=js['age'],js['name'
+  age,name=js['age'],js['name']
   
   dct[key].append(val)
   
@@ -48,6 +54,7 @@ def add_to_ls_dct(dct,js):
 pype( ls,
       lambda ls:[*js,'age':int(js['age']/10)} for js in ls],
       lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
 Now, we are starting to get functional, but we are not quite at pype yet.  First, I'm noticing that the first expression is a map over every JSON in ls.  So, I could write a function called round_age:
@@ -66,13 +73,15 @@ def round_age(js):
 pype( ls,
       lambda ls:[round_age(js) for js in ls],
       lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
-But at this point, the Python notation on the lambda was just a bit too verbose.  So I told the pype function that, whenever it saw afunction in square brackets, it would apply that function to the previous structure:
+But at this point, the Python notation on the lambda was just a bit too verbose.  So I told the pype function that, whenever it saw afunction in square brackets, it would apply that function to every element of the previous iterable structure:
 ```
 pype( ls,
       [round_age],
       lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:v['name'] for (k,v) in dct.items()}
      )
 ```
 But wait, why did round_age have to be its own function?  Maybe I could automate the dictionary alteration, by using something similar to Clojure's assoc.  So I built an expression called _assoc, which would associate a key in the dictionary to a value:
@@ -82,29 +91,90 @@ from pype import _assoc as _a
 js={"name":"bob"}
 
 pype(js,
-     _('age',42)) => {"name":"bob","age":42})
+     _a('age',42)) => {"name":"bob","age":42})
 ```
-This the _assoc takes the dictionary and adds a key. 
-So we have two operations on the list- a map and a reduce.  The map just alters each value of the list and the reduce rolls up the JSON into
-Functional programming revived my enthusiasm for coding - its cleanness, its expressiveness, its elegance.  I had been using a bee-bee gun to hunt dragons, and suddenly I was given an Uzi ... no, a gatling gun!  Difficult, snarling problems that only got more angry as I pelted them with bee-bees now seemed to evaporate in a quiet, peaceful, red mist.  
+This _assoc takes the dictionary and adds a key-value pair into that dictionary.  If the key is already in the dictionary, the value is overwritten with the new vale.  So let's re-define round_age to only do the calculation:
+```
+def round_age(js):
 
-But if I wanted to build Clojure applications, I would have to embed Python functionality in a microservice, and make HTTP calls or use websockets.  It worked well, but I didn't like the idea of using two different languages to do two different things.  Plus, employers don't really like it when you suddenly decide to switch to a language that no one else on the team knows.  I didn't want to leave Python, because of all its great libraries, so creating my own language was out.  What to do, what to do?
+  return int(js['age']/10)
+ 
+pype( ls,
+      [_a('age',round_age)],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:v['name'] for (k,v) in dct.items()}
+     )
+```
+round_age applies to every JSON in ls.  But what if we just wanted round_age to take an integer as a value?  We'd need a notation to access a value of the JSON by key:
+```
+def round_age(age):
 
-So I began to explore how Python implemented certain functional programming features - reduces, maps, filters, lambdas, etc. - and was still dissatisfied.  Their syntax was cumbersome, it flooded the page, it looked awful.  It was as if Python was grudgingly throwing us a bone, but still pouted about it.  
+  return int(age/10)
+ 
+pype( ls,
+      [_a('age',(round_age,_['age'])],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
+     )
+```
+Now, the expression (round_age,_['age']) says, "extract the 'age' value from the JSON, evaluate round_age on it, and assign the resulting value to 'age' in the JSON.  But wait, why even enclose the numerical computation in a function?  Could we just specify it in this new language?
+```
+pype( ls,
+      [_a('age',(int,_['age']/10)],
+      lambda ls:reduce(add_to_ls_dct,ls,{}),
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
+     )
+```
+We have overridden the / operator to produce an expression which is interpretable by pype.  So we have pypified the map entirely.  Let's move onto the reduce.  We want to build a dictionary which aggregates every user by the decade of their age.  First, we define a function to perform the reduce on a defaultdict: 
+```
+def add_age_to_dct(dct,js):
 
-I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots your teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
+  dct[js['age']].append(js['name'])
+  
+  return dct
+  
+pype( ls,
+      [_a('age',(int,_['age']/10)],
+      [(add_to_ls_dct,),defaultdict(lambda:list()],
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
+     )
+```
+[(add_to_ls_dct,),defaultdict(lambda:list()] means, we iterate over the jsons, and build a dictionary using add_to_ls_dct.  Because the dictionary is a defaultdict, it will automatically add a list to a key that hasn't been inserted yet.  Luckily, however, I've written a library of helpers for these aggregation operations, merge_ls_dct_no_key.  This deletes a key from the JSON, and uses that value as a key in the new dictionary:
+```
+from pype.helpers import merge_ls_dct_no_key
+
+pype( ls,
+      [_a('age',(int,_['age']/10)],
+      (merge_ls_dct_no_key,_,'age'),
+      lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
+     )
+```
+_ refers to the previous value, and is sort of an "identity function", or placeholder for merge_ls_dct_no_key, since this function takes two arguments.
+
+In the final step, we want to iterate through every JSON in the list values, and extract the 'name' value.  We can do this by running another map.  When a map runs on a dictionary we apply the expression to the values.  For clarity, we will use the build_pype function to loop through the list and extract the name value from the JSON:
+```
+from pype.helpers import merge_ls_dct_no_key
+from pype import build_pype as bp
+
+names=bp([_['name']])
+
+pype( ls,
+      [_a('age',(int,_['age']/10)],
+      (merge_ls_dct_no_key,_,'age'),
+      [names]
+     )
+```
+In [_['name']], the enclosing square brackets mean "go through the list and apply the enclosing expression".  We know that this is a list of JSON's, each with a 'name' field, so we extract that field using _['name'].
+
+It was this process that turned pype from a simple reduce function into something much more expressive.
+
+You may say this is "syntactic sugar".  I hate the expression "syntactic sugar".  Sugar is something you don't need.  Sugar rots yourYou  teeth.  Sugar makes you a diabetic.  You sprinkle sugar in your tea at the weekly Princeton University English Department faculty meeting, listening politely to the Dean's passive-aggressive comments about your latest novel.  The metaphor seemed to imply that more concise ways of expressing an idea were bad for you, that if you aren't thinking in terms of "for(int i=0; i <= LENGTH; i++){ ...", you aren't a real programmer.  Here's a little secret - to every programmer, every other programmer is not a real programmer.  We need, collectively, to get over it.
 
 I didn't want "syntactic sugar".  Sugar doesn't change things deeply, make you see things differently.  No, motherfucker, I wanted "syntactic plutonium".    
 
 So I decided to create what I call "pseudo-macros", or "fArgs" - syntactically valid Python expressions which are, in an of themselves, no more than meaningless native Python data structures - lists, tuples, and dictionaries, mostly - but that, when used as arguments to a certain function, perform common FP operations.
 
 This also is why pype can't be called a real programming language.  A pype expression compiles in python, but is then interpreted to run code, so the strategy for interpretation is to examine, with if-thens, the structure and content of the data structure.  Later, I added a just-in-time optimizer which could eventually convert a function returning a pype expression into a function returning the result of a series of native Python expressions, by using AST.   
-
-Over a long weekend, while my wife was away, I wrote pype, and I have been using it ever since.  I have been working on it for months now, but most of the ideas come from this one weekend.  It was written in a weekend ... just like Javascript!  And just like Javascript, it is concise, expressive, not prone to code bloating at all.  Just messing with you.  Javascript is unbelievably bad, in my opinion.  And probably, so is pype.  
-
-But, it works for me.  I find that it is very easy to represent my program logic concisely and elegantly, and with the optimizer, I have been able to write and deploy performant production code at work.  And I have found that things that programmers use for themselves are often better built than things they write for others - the Linux kernel being the most referred-to-example.  
-
-I didn't really ask for permission, but since I was technically using Python in the office, I somehow managed to get away with it.  This, I think, is another benefit of pype.  You can do real functional programming in Python, which is more likely to be one of the allowed languages at your workplace.  One of my TODO's is to write something that can convert Pype expressions back into humdrum Python code, so you don't even need to commit it.  
 
 Pype is distributed under the MIT license.
 
