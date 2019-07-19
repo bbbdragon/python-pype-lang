@@ -263,7 +263,7 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
               {_['lhs']:_p( _a('tree',_l(_['lhs'],
                                          (get_or_false,_['rhs1'],'tree'),
                                          (get_or_false,_['rhs1'],'tree')),
-                            _d('rhs1','rhs2','tree1','tree2')),
+                            _d('rhs1','rhs2')),
                'else':False}
             )
 
