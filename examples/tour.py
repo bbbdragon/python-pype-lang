@@ -782,6 +782,7 @@ def demo():
 
     #assert(x == 1)
 
+    '''
     print('>'*30)
     print('AND FILTERS')
     print('>'*30)
@@ -805,7 +806,7 @@ def demo():
     print(x)
 
     assert(x == [2,4,3])
-
+    '''
     print('>'*30)
     print('OR FILTERS')
     print('>'*30)
