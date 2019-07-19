@@ -264,7 +264,7 @@ One way I evaluate a coding style is to write a piece of code and then revisit i
 
 Maybe other developers will complain about your using pype, but don't take it personally.  Office developers take about as much interest in one anothers' code as 3-year-olds take in one anothers' fingerpainting.  Besides, if they can't understand what a map, reduce, or filter is, should they really be developing?  You'll get your work done 10x faster, anyway, so the bosses will love you - or fire you for being too productive.
 
-But this isn't an advertisement.  I genuinely do not care if you use pype or not - it works for me, not so well for others.  And, in huge amounts, the hyper-concise notation can get you lost.  See above on how to make your code maintainable.  
+But this isn't an advertisement.  I genuinely do not care if you use pype or not - it works for me, not so well for others.  And, in huge amounts, the hyper-concise notation can get you lost.  See below on how to make your code maintainable.  
 
 * "Can I build microservices in pype?"
 
