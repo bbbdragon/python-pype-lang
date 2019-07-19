@@ -117,7 +117,7 @@ pype( ls,
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
 ```
-Now, the expression (round_age,_['age']) says, "extract the 'age' value from the JSON, evaluate round_age on it, and assign the resulting value to 'age' in the JSON.  But wait, why even enclose the numerical computation in a function?  Could we just specify it in this new language?
+Now, the expression _a('age',(round_age,_['age'])) says, "extract the 'age' value from the JSON, evaluate round_age on it, and assign the resulting value to 'age' in the JSON.  But wait, why even enclose the numerical computation in a function?  Could we just specify it in this new language?
 ```
 pype( ls,
       [_a('age',(int,_['age']/10)],
