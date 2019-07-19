@@ -2,12 +2,18 @@
 python3 cyk.py
 
 This is a pype implementation of my functional implementation of the CYK parsing
-algorithm in Clojure, at https://bitbucket.org/bbbdragon/bennett-cyk-demo.  You will
-find that the pype implementation implements the algorithm functionally in the same 
-way that the Clojure algorithm does.  The only difference is under-the-hood.  Because
-Clojure data structures are so light-weight, it can generate new structures with 
-every iteration and not have any performance hits.  In this case, however, the same
-table structure is being updated with each iteration - the code is functional, but
+algorithm in Clojure, at https://bitbucket.org/bbbdragon/bennett-cyk-demo.  It 
+demonstrates that an algorithm which has traditionally been implemented as a series
+of loops over a static table can be implemented functionally.  
+
+The algorithm is described in full at: https://en.wikipedia.org/wiki/CYK_algorithm
+
+The pype implementation implements the algorithm functionally in the same way that 
+the Clojure algorithm does.  The only difference is under-the-hood.  
+
+Because Clojure data structures are so light-weight, it can generate new structures 
+with every iteration and not have any performance hits.  In this case, however, the 
+same table structure is being updated with each iteration - the code is functional, but
 the underlying implementation does not guarantee immutability.
 '''
 from pype import pype as p
