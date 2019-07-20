@@ -10,7 +10,7 @@ df.dropna()
 ...
 result=get_result_finally(df)
 ```
-It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  Functional programming was something extremely powerful for me.  I felt as if I switched from a bee-bee gun to an Uzi ... no, a gatling gun.  Before FP, difficult, snarling problems only got angrier as I shot at them.  Now, they vanished into a peaceful, quiet, red mist.  
+It was then, on a particular NLP-related project, that I discovered Clojure, and its ->> macro.  Functional programming was something extremely powerful for me.  I felt as if I switched from a bee-bee gun to an Uzi ... no, a gatling gun.  Before FP, difficult, snarling problems only got angrier as I shot at them.  Now, with the pull of a trigger, they vanished into a peaceful, quiet, red mist.  
 
 But I found another dilemna.  Switching languages in the office is a big no-no, and even if I wanted to use Clojure I still needed Python's extremely mature libraries, embedded in microservices that the main Clojure app called through HTTP.  So I started to code functionally in Python.  Here's how pype came about.
 
