@@ -312,8 +312,7 @@ This is nothing special, and can be implemented with a reduce.  However, it turn
 * index args - when the accum is a sequence, accessing any of the first 4 values of the accum.
 * maps - Appyling an fArg to each element of an iterable.
 * reduces - Taking an iterable, which applies an fArg to update an accumulated value.
-* AND filters - Taking all elements of an iterable which statisfy the AND of all truth conditions.
-* OR filters - Taking all elements of an iterable which satisfy the OR of all truth conditions.
+* filters - Taking all elements of an iterable which statisfy the conditions.
 * lambdas - A shorthand for applying a function to several bound variables and accumulator-specific expressions.
 * object lambdas - A shorthand for accessing methods in an object.
 * indexes - Accessing values of list and dictionary accums.
