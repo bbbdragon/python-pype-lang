@@ -117,7 +117,7 @@ def round_age(age):
   return int(age/10)
  
 pype( ls,
-      [_a('age',(round_age,_['age'])],
+      [_a('age',(round_age,_['age']))],
       lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
@@ -125,7 +125,7 @@ pype( ls,
 Now, the expression _a('age',(round_age,_['age'])) says, "extract the 'age' value from the JSON, evaluate round_age on it, and assign the resulting value to 'age' in the JSON.  But wait, why even enclose the numerical computation in a function?  Could we just specify it in this new language?
 ```
 pype( ls,
-      [_a('age',(int,_['age']/10)],
+      [_a('age',(int,_['age']/10))],
       lambda ls:reduce(add_to_ls_dct,ls,defaultdict(lambda:list())),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
@@ -149,7 +149,7 @@ pype( ls,
 from pype.helpers import merge_ls_dct_no_key
 
 pype( ls,
-      [_a('age',(int,_['age']/10)],
+      [_a('age',(int,_['age']/10))],
       (merge_ls_dct_no_key,_,'age'),
       lambda dct:{k:[js['name'] for js in v] for (k,v) in dct.items()}
      )
@@ -164,7 +164,7 @@ from pype import build_pype as bp
 names=bp([_['name']])
 
 pype( ls,
-      [_a('age',(int,_['age']/10)],
+      [_a('age',(int,_['age']/10))],
       (merge_ls_dct_no_key,_,'age'),
       [names]
      )
@@ -172,7 +172,7 @@ pype( ls,
 In [_['name']], the enclosing square brackets mean "go through the list and apply the enclosing expression".  We know that this is a list of JSON's, each with a 'name' field, so we extract that field using _['name'].  However, I've recently gotten rid of the AND filter, so now you can use [[]] to iterate through lists embedded in dictionaries:
 ```
 pype( ls,
-      [_a('age',(int,_['age']/10)],
+      [_a('age',(int,_['age']/10))],
       (merge_ls_dct_no_key,_,'age'),
       [[_['name']]]
      )
