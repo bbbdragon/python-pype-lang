@@ -643,10 +643,44 @@ def eval_and_filter(accum,fArgs):
 
 def is_or_filter(fArg):
 
-    return is_set(fArg)
+    #print('*'*30)
+    #print('is_or_filter')
+    #print(f'{fArg} is fArg')
+    #print(f'{not is_set(fArg)} is not is_set(fArg)')
+
+    # We had to pimp up this function when getting rid of the AND filter. 
+    # First, we want to see if it's a singleton set.
+
+    if not is_set(fArg):
+
+        return False
+
+    # Then, we get the first element of the set ...
+
+    el=next(iter(fArg))
+
+    #print(f'{el} is el')
+
+    # Is it an fArg or a LamTup?
+
+    #print(f'{is_f_arg(el)} is is_f_arg(el)')
+    #print(f'{ is_lam_tup(el)} is is_lam_tup(el)')
+
+    return is_f_arg(el) \
+        or is_lam_tup(el)
+        
 
 
 def filter_or(v,fArgs):
+
+    #print('*'*30)
+    #print('filter_or')
+    #print(f'{fArgs} is fArgs')
+    # Now, when we evaluate, we need to unpack the set and apply delam to it.
+    # We only delam it here because otherwise certain LamTups with embedded lists
+    # will be unhashable.  
+
+    fArgs=[delam(fArg) for fArg in fArgs]
 
     return any([pype(v,fArg) for fArg in fArgs])
 
@@ -1237,7 +1271,7 @@ FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_map,eval_map),
             (is_for_loop,eval_for_loop),
             (is_reduce,eval_reduce),
-            (is_and_filter,eval_and_filter),
+            #(is_and_filter,eval_and_filter),
             (is_or_filter,eval_or_filter),
             (is_switch_dict,eval_switch_dict),
             (is_lambda,eval_lambda),
@@ -1339,6 +1373,7 @@ def pype_eval(accum,fArg):
 
         raise e
 
+import pprint as pp
 
 def pype(accum,*fArgs):
     '''
@@ -1347,7 +1382,8 @@ def pype(accum,*fArgs):
     #print('*'*30)
     #print('pype')
     #print('{} is fArgs'.format(fArgs))
-    #print('{} is accum'.format(accum))
+    #pp.pprint(accum)
+    #pp.pprint('is accum')
 
     if is_pype_val(accum):
 
@@ -2167,7 +2203,7 @@ def demo():
 
     print('='*30)
 
-    x=pype([1,2,3],[concat,[4,5,6],[7,8]])
+    x=pype([1,2,3],_concat(_,[4,5,6],[7,8]))
 
     print(x)
 
