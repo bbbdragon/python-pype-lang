@@ -269,9 +269,15 @@ def delam(expr):
 
         return tuple([delam(el) for el in expr])
 
+    '''
     if is_set(expr):
 
+        print('*'*30)
+        print(expr)
+        print([el for el in expr])
+
         return set([delam(el) for el in expr])
+    '''
 
     return expr
 
