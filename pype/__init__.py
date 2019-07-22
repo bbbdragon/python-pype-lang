@@ -12,6 +12,8 @@ import numpy as np
 import sys
 import pprint as pp
 
+__version__='1.0.0'
+
 ###########
 # LOGGING #
 ###########
