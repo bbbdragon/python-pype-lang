@@ -212,13 +212,17 @@ Ensure you are running under root if you do not have proper permissions.
 
 ## From Source
 
-Clone this repo and cd into the directory `pype`.  To install on your local machine, under root, run:
+Clone this repo, and cd into `python-pype-lang`.  To install on your local machine, under root, run:
 
 ```
 cd pype
 pip3 setup.py install
 ```
-To re-install, you will need to run the following commands:
+To re-install, you will need to run the following script from `python-pype-lang`:
+```
+./reinstall_from_source.sh
+```
+which will execute, under sudo, the following commands:
 ```
 pip3 uninstall pype
 pip3 setup.py install
