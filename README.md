@@ -902,7 +902,6 @@ As of today, optimized pype only covers a subset of fArg types:
 * lambdas
 * indexes
 * maps
-* AND filters
 * switch dicts
 * dict assocs
 * dict merges
