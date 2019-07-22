@@ -70,18 +70,25 @@ def read_grammar(grammarString):
     We aggregate these dictionaries by 'rhs1', giving us a dictionary of the form
     {rhs1:[{'rhs1':rhs1,'rhs2':rhs2,'lhs':lhs},...],...}.
 
-    [_p((merge_ls_dct,_,'rhs2'),
-        [_0],
-        [_['lhs']])]
+    [(merge_ls_dct,_,'rhs2')],
 
-    Then, we iterate through the values of the resulting dict, which are lists.  We
-    aggregate these lists by rhs2.  Since this is a deterministic context-free-
-    grammar, we know that we have a JSON of form 
+    This performs the same merge on the embeded dictionaries, producing a JSON of
+    form: {rhs1:{rhs2:[{'rhs1':rhs1,'rhs2':rhs2,'lhs':lhs}],...},...}
 
-    {rhs1:(rhs2:[{'rhs1':rhs1,'rhs2':rhs2,'lhs':lhs}],...],...}.
-    
-    with only one element in the embedded list.  We therefore extract the first element
-    of these embedded lists with [_0], and extract the element keyed by 'lhs'.
+    [[_0]]
+
+    Since rhs1 and rhs2 are keys to single-element lists, we extract the first element
+    from this list, so now our JSON is:{rhs1:{rhs2:{'rhs1':rhs1,'rhs2':rhs2,
+    'lhs':lhs},...},...}
+
+    [[_['lhs']]],
+
+    Now, we want to extract only the 'lhs' from the JSON keyed by rhs1 and rhs2, 
+    producing a JSON of the form: {rhs1:{rhs2:lhs,...},...}.
+
+    One thing to note is that this only applies to deterministic Context-Free 
+    grammars, which allow only one parse for a string.  This is the case with
+    programming languages, but is not the case for Natural Languages. 
     '''
     return p( grammarString,
               _.splitlines,
@@ -91,9 +98,9 @@ def read_grammar(grammarString):
                 'rhs1':_1,
                 'rhs2':_2}],
               (merge_ls_dct,_,'rhs1'),
-              [_p((merge_ls_dct,_,'rhs2'),
-                  [_0],
-                  [_['lhs']])]
+              [(merge_ls_dct,_,'rhs2')],
+              [[_0]],
+              [[_['lhs']]],
             )
 
 
