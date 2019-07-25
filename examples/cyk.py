@@ -228,31 +228,38 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
     JSON of form {'lhs':lhs1,'tree':tree1} if there is an element in the table
     from which the grammar can derive an lhs.  
 
-    {'rhs1':(get_or_false,_,begin1,end1),
-     'rhs2':(get_or_false,_,begin2,end2)},
+    {'rhs1':_[begin1,end1],
+     'rhs2':_[begin2,end2]},
 
-    get_or_false is a helper which takes a dictionary with embedded dictionaries
-    and finds if the sequence of keys is present.  So, if the table is:
+    If the sequence of keys is present in the dictionary, we return the element keyed
+    by those keys.  Otherwise, we return False.
 
     {0:0:{'lhs':'Det','tree':['Det']}}
 
-    then get_or_false(table,0,0) will return {'lhs':'Det','tree':['Det']}.  However,
-    with this particular table, get_or_false(table,0,1) will return False, because
+    then p(table,_[0,0]) will return {'lhs':'Det','tree':['Det']}.  However,
+    with this particular table, p(table,_[0,1]), will return False, because
     no embedded element exists in the JSON.  We store 'rhs1' and 'rhs2' in a dict build
     because we are going to reference them in the next two lines - this how we can
     use dict builds for scoping.
 
     _a('lhs',(get_or_false,grammar,
-                           (get_or_false,_['rhs1'],'lhs'),
-                           (get_or_false,_['rhs2'],'lhs'))),
+                           _['rhs1','lhs'],
+                           _['rhs2','lhs'])),
+
+    get_or_false has the same functionality as the indexing.  However, we use it 
+    because the alternative expression:
+
+    _a('lhs',v(grammar)[_['rhs1','lhs'],_['rhs2','lhs']),
+    
+    is a lot uglier.
 
     Now, we check the grammar to see if it has a rule in which the lhs of rhs1 is the
     first rhs, and the lhs of rhs2 is the second lhs.  We assign the result to 'lhs'
     in the main JSON.
 
      {_['lhs']:_p( _a('tree',_l(_['lhs'],
-                                (get_or_false,_['rhs1'],'tree'),
-                                (get_or_false,_['rhs1'],'tree')),
+                                _['rhs1','tree'],
+                                _['rhs1','tree']),
                             _d('rhs1','rhs2')),
      'else':False}
 
