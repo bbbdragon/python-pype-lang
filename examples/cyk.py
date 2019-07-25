@@ -267,15 +267,16 @@ def get_lhs(begin1,begin2,end1,end2,table,grammar):
 
     Finally, we get rid of 'rhs1','rhs2', which we don't need and return the JSON.
     '''
+
     return p( table,
-              {'rhs1':(get_or_false,_,begin1,end1),
-               'rhs2':(get_or_false,_,begin2,end2)},
+              {'rhs1':_[begin1,end1],
+               'rhs2':_[begin2,end2]},
               _a('lhs',(get_or_false,grammar,
-                                     (get_or_false,_['rhs1'],'lhs'),
-                                     (get_or_false,_['rhs2'],'lhs'))),
+                                     _['rhs1','lhs'],
+                                     _['rhs2','lhs'])),
               {_['lhs']:_p( _a('tree',_l(_['lhs'],
-                                         (get_or_false,_['rhs1'],'tree'),
-                                         (get_or_false,_['rhs1'],'tree'))),
+                                         _['rhs1','tree'],
+                                         _['rhs2','tree'])),
                             _d('rhs1','rhs2')),
                'else':False}
             )

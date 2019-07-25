@@ -12,7 +12,7 @@ import numpy as np
 import sys
 import pprint as pp
 
-__version__='1.0.0'
+__version__='1.0.1'
 
 ###########
 # LOGGING #
@@ -350,7 +350,7 @@ def is_indexable(el):
     return is_sequence(el) or is_mapping(el)
 
 
-def is_index(fArg):
+def is_index_old(fArg):
 
     #print('*'*30)
     #print('is_index')
@@ -371,12 +371,61 @@ def get_index(el):
     return el[0]
 
 
-def eval_index(accum,fArg):
+def is_index(fArg):
+
+    return is_tuple(fArg) \
+        and len(fArg) == 2 \
+        and is_getitem(fArg[1])
+        #and (fArg[0] == _ or is_f_arg(fArg[0])) 
+
+
+
+def eval_index(accum,fArgs):
+
+    accum=accum[ARGS][0]
+
+    if accum == False:
+
+        return args(False)
+
+    if not is_indexable(accum):
+
+        raise Exception('{} is not a sequence or a mapping'.format(accum))
+
+    accum=eval_or_val(accum,fArgs[0])
+
+    if accum == False:
+
+        return args(False)
+    
+    index=eval_or_val(accum,fArgs[1][0])
+
+    #if index == False:
+
+    #    return args(False)
+
+    if (is_list(accum) or is_tuple(accum)) and index > len(accum)-1:
+        
+        return args(False)
+    
+    if is_dict(accum) and index not in accum:
+        
+        return args(False)
+
+    return args(accum[index])
+
+        
+    
+
+def eval_index_old(accum,fArg):
 
     #print('*'*30)
     #print('eval_index')
 
     accum=accum[ARGS][0]
+    
+    #print('{} is fArg'.format(fArg))
+    
     accum=eval_or_accum(accum,fArg[0])
 
     #print('{} is accum'.format(accum))
@@ -1003,7 +1052,7 @@ WHILE_LOOP_ARGS=set([while_loop])
 def is_while_loop(fArg):
 
     return is_list(fArg) \
-        and len(fArg) ==4 \
+        and (len(fArg) == 3 or len(fArg) == 4) \
         and is_string(fArg[0]) \
         and fArg[0] in WHILE_LOOP_ARGS
 
@@ -1017,8 +1066,7 @@ def eval_while_loop(accum,fArg):
     accum=accum[ARGS][0]
     condition=fArg[1]
     function=fArg[2]
-    startingVal=fArg[3]
-    val=eval_or_val(accum,startingVal)
+    val=eval_or_val(accum,fArg[3]) if len(fArg) == 4 else accum
 
     #print('{} is p(1,_>4)'.format(pype(1,_<4)))
     #print('{} is accum'.format(accum))
@@ -1029,10 +1077,12 @@ def eval_while_loop(accum,fArg):
     #print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
     #print('*'*30)
 
-    while not bool(pype(val,condition)):
+    #print(f'bool(pype(val,condition)) is {bool(pype(val,condition))}')
 
-        #print('pype(val,condition) is {}'.format(pype(val,condition)))
-        #print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
+    while bool(pype(val,condition)):
+
+        #print(f'bool(pype(val,condition)) is {bool(pype(val,condition))}')
+        #print(f'{val} is val')
 
         val=pype(val,function)
 
@@ -1268,7 +1318,6 @@ def _do(fArgs):
 
 FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_index_arg,eval_index_arg),
-            (is_index,eval_index),
             (is_callable,eval_callable),
             (is_map,eval_map),
             (is_for_loop,eval_for_loop),
@@ -1277,6 +1326,7 @@ FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_or_filter,eval_or_filter),
             (is_switch_dict,eval_switch_dict),
             (is_lambda,eval_lambda),
+            (is_index,eval_index),
             (is_object_lambda,eval_object_lambda),
             (is_xedni,eval_xedni),
             (is_dict_build,eval_dict_build),

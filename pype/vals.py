@@ -56,9 +56,20 @@ class LamTup(object):
 
         # We rewrite and return acceptable expressions.
 
-        if is_tuple(val) or is_list(val):
+        if (is_tuple(val) or is_list(val)):
 
-            return LamTup([self.val()]+[[v] for v in val])
+           if len(val) > 1:
+
+               # We are making this definition recursive, since I do not want to 
+               # evaluate two different structures for indexing.
+               # The first is _[0][0], the second is _[0,0], which should both
+               # after delam parse as ((('_pype_mirror_',), [0]), [0])
+
+               return LamTup(self.__getitem__(val[:-1]),[val[-1]])
+
+           else:
+
+               return LamTup(self.val(),[val[0]])
 
         elif is_slice(val):
 
@@ -198,10 +209,19 @@ class LamTup(object):
 
         return LamTup(xor,self.val(),other)
 
+    '''
     def __contains__(self,other):
 
         return LamTup(contains,self.val(),other)
+    '''
 
+    def __rshift__(self,other):
+
+        return LamTup(contains,other,self.val())
+
+    def __rrshift__(self,other):
+
+        return LamTup(contains,self.val(),other)
 
 class PypeVal(LamTup):
 
