@@ -31,6 +31,7 @@ import numpy as np
 from functools import wraps
 from copy import deepcopy
 import pprint as pp
+import astpretty
 
 NUMPY_UFUNCS=set(dir(np))
 ACCUM_STORE=Name(id='accum',ctx=Store())
@@ -1201,7 +1202,7 @@ def replace_with_name_node(fArgs,nodes):
 
 FUNCTION_CACHE={}
 
-def optimize(pype_func):
+def optimize(pype_func,verbose=True):
 
     originalFuncName=pype_func.__name__
     glbls=pype_func.__globals__
@@ -1231,11 +1232,12 @@ def optimize(pype_func):
         callReplacer=PypeCallReplacer(aliases)
         recompiledReplacerNamespace={}
 
-        #print('*'*30)
-        #print('parse tree before')
-        ##print(f'{originalFuncName} in globals: {glbls[originalFuncName]}')
-        #astpretty.pprint(tree)
-        #print('*'*30)
+        if verbose:
+
+            print('*'*30)
+            print('parse tree before')
+            astpretty.pprint(tree)
+            print('*'*30)
 
         callReplacer.visit(tree)
 
@@ -1281,10 +1283,11 @@ def optimize(pype_func):
 
         treeReplacer.visit(tree)
 
-        #print('*'*30)
-        #print('parse tree after')
-        #astpretty.pprint(tree)
-        #pp.pprint(astunparse.dump(tree))
+        if verbose:
+
+            print('*'*30)
+            print('parse tree after')
+            astpretty.pprint(tree)
 
         exec(compile(tree,
                      filename='<ast>',

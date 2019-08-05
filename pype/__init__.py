@@ -335,6 +335,30 @@ def eval_switch_dict(accum,fArg):
     return args(eval_or_val(accum,ret))
 
 
+def _if(condition,fArg):
+
+    return {condition:fArg,
+            'else':_}
+
+
+def _iff(condition,fArg):
+
+    return {condition:fArg,
+            'else':False}
+    
+
+def _ifp(*fArgs):
+    
+    return {_:_p(*fArgs),
+            'else':_}
+
+
+def _iffp(*fArgs):
+    
+    return {_:_p(*fArgs),
+            'else':False}
+
+
 #########
 # INDEX #
 #########
@@ -371,11 +395,25 @@ def get_index(el):
     return el[0]
 
 
+def has_mirror(fArg):
+
+    if is_mirror(fArg):
+
+        return True
+
+    if (is_list(fArg) or is_tuple(fArg)) and len(fArg) >= 1:
+        
+        return has_mirror(fArg[0])
+
+    return False
+
+    
 def is_index(fArg):
 
     return is_tuple(fArg) \
         and len(fArg) == 2 \
-        and is_getitem(fArg[1])
+        and is_getitem(fArg[1]) \
+        and has_mirror(fArg[0])
         #and (fArg[0] == _ or is_f_arg(fArg[0])) 
 
 
@@ -383,6 +421,8 @@ def is_index(fArg):
 def eval_index(accum,fArgs):
 
     accum=accum[ARGS][0]
+    #pp.pprint(accum)
+    #print('is accum')
 
     if accum == False:
 
@@ -404,7 +444,8 @@ def eval_index(accum,fArgs):
 
     #    return args(False)
 
-    if (is_list(accum) or is_tuple(accum)) and index > len(accum)-1:
+    if (is_list(accum) or is_tuple(accum)) \
+       and index > len(accum)-1:
         
         return args(False)
     
@@ -521,11 +562,13 @@ def is_lambda(fArg):
 
 def eval_lambda(accum,fArgs):
 
-    #print('*'*30)
-    #print('eval_lambda')
-    #print('{} is accum'.format(accum))
-    #print('{} is fArgs'.format(fArgs))
-    #print('{} is fArgs[1:]'.format(fArgs[1:]))
+    '''
+    print('*'*30)
+    print('eval_lambda')
+    print(f'{str(accum)[:100]} is accum')
+    print('{} is fArgs'.format(fArgs))
+    print('{} is fArgs[1:]'.format(fArgs[1:]))
+    '''
 
     accum=accum[ARGS][0]
     fArg=fArgs[0]
@@ -753,10 +796,14 @@ DICT_BUILD_ARGS=set([d])
 
 def is_explicit_dict_build(fArg):
 
+    return is_list(fArg) and len(fArg) >= 2 \
+        and is_string(fArg[0]) and fArg[0] in DICT_BUILD_ARGS
+
+    '''
     return is_list(fArg) and len(fArg) == 2 \
         and is_string(fArg[0]) and fArg[0] in DICT_BUILD_ARGS \
         and is_dict(fArg[1])
-
+    '''
 
 DICT_FARGS_LIMIT=10
 
@@ -801,7 +848,13 @@ def eval_dict_build(accum,fArgs):
 
     if is_explicit_dict_build(fArgs):
 
-        fArgs=fArgs[1]
+        if len(fArgs) == 2:
+
+            fArgs={fArgs[1]:accum[ARGS][0]}
+
+        else:
+
+            fArgs={k:v for (k,v) in zip(fArgs[1:],fArgs[2:])}
 
     # This is so that we can include lamTups in keys but not break the dictionary.
 
@@ -813,6 +866,16 @@ def eval_dict_build(accum,fArgs):
 def _d(*fArgs):
 
     return [d,*fArgs]
+
+
+def _dp(*fArgs):
+
+    return [d,fArgs[0],_p(*fArgs[1:])]
+
+
+def _select(*fArgs):
+
+    return {fArg:_[fArg] for fArg in fArgs}
 
 
 #########
@@ -853,6 +916,12 @@ def eval_dict_assoc(accum,fArg):
 def _assoc(*fArgs):
 
     return [assoc,*fArgs]
+
+
+def _assoc_p(*fArgs):
+
+    return [assoc,fArgs[0],_p(*fArgs[1:])]
+
 
 
 #########
@@ -1052,7 +1121,7 @@ WHILE_LOOP_ARGS=set([while_loop])
 def is_while_loop(fArg):
 
     return is_list(fArg) \
-        and (len(fArg) == 3 or len(fArg) == 4) \
+        and (len(fArg) >= 2 and len(fArg) <= 4) \
         and is_string(fArg[0]) \
         and fArg[0] in WHILE_LOOP_ARGS
 
@@ -1064,9 +1133,24 @@ def eval_while_loop(accum,fArg):
     #print('{} is fArg'.format(fArg))
 
     accum=accum[ARGS][0]
-    condition=fArg[1]
-    function=fArg[2]
-    val=eval_or_val(accum,fArg[3]) if len(fArg) == 4 else accum
+    condition=fArg[1] # continue loop condition
+    function=fArg[2] # perform on value while condition is true
+
+    if len(fArg) == 2:
+
+        val=accum
+
+    if len(fArg) == 3:
+
+        #print(f'evaluating against function {function}')
+
+        val=eval_or_val(accum,function)
+
+    else:
+
+        #print(f'evaluating against starting val {fArg[3]}')
+
+        val=eval_or_val(accum,fArg[3])
 
     #print('{} is p(1,_>4)'.format(pype(1,_<4)))
     #print('{} is accum'.format(accum))
@@ -1077,6 +1161,8 @@ def eval_while_loop(accum,fArg):
     #print('bool(pype(val,condition)) is {}'.format(bool(pype(val,condition))))
     #print('*'*30)
 
+    #print(f'{val["diff"]} is diff')
+    #print(f'{condition} is condition')
     #print(f'bool(pype(val,condition)) is {bool(pype(val,condition))}')
 
     while bool(pype(val,condition)):
@@ -1376,11 +1462,13 @@ import time as tm
 
 def pype_eval(accum,fArg):
 
-    #print('*'*30)
-    #print('pype_eval')
-    #print('{} is accum'.format(accum))
-    #print('{} is fArg'.format(fArg))
-    #print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
+    '''
+    print('*'*30)
+    print('pype_eval')
+    print('{} is accum'.format(accum))
+    print('{} is fArg'.format(fArg))
+    print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
+    '''
 
     evalList=[evl for (is_f,evl) in FARG_PAIRS if is_f(fArg)]
 
@@ -1409,6 +1497,14 @@ def pype_eval(accum,fArg):
                 print(f'time to eval: {tm.time() - t0}')
 
             return v
+
+        if 'trace' in PYPE_LOGGING and PYPE_LOGGING['trace']==True:
+
+            print('*'*30)
+            print(f'{accum} is accum')
+            print(f'{fArg} is fArg')
+            print(f'{eval_f} is eval_f')
+            print(f'{eval_f(accum,fArg)} is eval_f(accum,fArg)')
 
         return eval_f(accum,fArg)
 

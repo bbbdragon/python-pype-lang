@@ -193,6 +193,10 @@ class LamTup(object):
 
         return LamTup(not_,self.val())
 
+    def __invert__(self):
+
+        return LamTup(not_,self.val())
+
     def __and__(self,other):
 
         return LamTup(and_,self.val(),other)
