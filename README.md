@@ -498,13 +498,13 @@ pype([1,2,3,4],
 ```
 ## Object Lambdas
 
-`(mirror,string)`
+`_.string`
 
-An object lambda takes an object as an accum.  The string is then an attribute, either a field of the class or a member function. It evaluates in three different ways:
+An object lambda takes an object as an accum.  `string` is then an attribute, either a field of the class or a member function. It evaluates in three different ways:
 
 1. If the object lambda is not the first element of a lambda, and the string refers to a member function of the accum, then that function is called, and its value is returned:
 ```
-pype({1:2,3:4},(_,'keys')) <=> {1:2,3:4}.keys() <=> dict_keys([1,3])
+pype({1:2,3:4},_.keys) <=> {1:2,3:4}.keys() <=> dict_keys([1,3])
 
 def CallMe():
   def __init__(self):
@@ -528,30 +528,30 @@ pype(CallMe(),(_.add1,1)) <=> CallMe().add1(1) <=> 2
 
 ## Indexes
 
-`(mirror,[<expression|fArg>],+)`
+`_[<expression|fArg>+]`
 
-Or indices if you want to be a snob about it.  These take a sequence or a mapping as an accum.  If the accum is a sequence, then `[<expression|fArg>]` must evaluate to an integer.  If the accum is a mapping, it must evaluate to a key of the mapping:
+Or indices if you want to be a snob about it.  These take a sequence or a mapping as an accum.  If the accum is a sequence, then each `<expression|fArg>` must evaluate to an integer.  If the accum is a mapping, it must evaluate to a key of the mapping:
 ```
 ls=[1,2,3,4]
-pype(ls,(_,[0])) <=> ls[0] <=> 1
+pype(ls,_[0]) <=> ls[0] <=> 1
 dct={1:2,3:4}
-pype(dct,(_,[3]) <=> dct[3] <=> 4
+pype(dct,_[3]) <=> dct[3] <=> 4
 ```
 If there are multiple `[<expression|fArg>]`, then we evaluate them one at a time:
 ```
 ls=[[1,2,3],[4,5,6]]
-pype(ls,(_,[0],[1])) <=> ls[0][1] <=> 2
+pype(ls,_[0,1])) <=> ls[0][1] <=> 2
 ```
-`Getter` and `PypeVal` objects override the `__getitem__` method to return an index:
+If the indexed object is a dictionary and the key is not in the dictionary, the expression evaluates as False.  Similarly,
+if the indexed object is a list and the index is too high for the list, the expression evaluates as False.  This imitates Clojure's returning nil when an indexed element is not found in a container:
 ```
-from pype.vals import Getter,PypeVal
-
-_[1] <=> (_,[1])
-_[2,3] <=> (_,[2],[3])
-ls=[1,2,3,4]
-pype(ls,_[0]) <=> ls[0] <=> 1
-ls=[[2,3,4],[1,2,3]]
-pype(ls,_[1,2]) <=> ls[1][2] <=> 3
+ls=[[1,2,3],[4,5,6]]
+pype(ls,_[3,1])) <=> ls[3][1] <=> False
+```
+```
+dct={1:2,3:{4:5}}
+pype(dct,_[3,4])) <=> dct[3][4] <=> 5
+pype(dct,_[3,6])) <=> dct[3][6] <=> False
 ```
 Splices are also available, although they do not evaluate as indexes:
 ```
@@ -614,28 +614,6 @@ pype(4, {_ > 2: "greater than two", 2: "two", "else" : _}) <=> pype(4, {(gt,_,2)
 We evaluate every fArg key in order, so only the value for the last evaluated fArg is returned:
 ```
 pype(3, {_ > 2: "greater than two", _ < 4 : "less than four", "else" : _}) <=> "less than four"
-```
-
-## For Loops
-
-I am deprecating this feature soon, may be a good idea to stop using it, since I almost never do.  
-
-`[([<fArg1|iterable1|int1>],[<fArg2|iterable2|int2>],+),<fArg3|expression3>?]`
-
-This simulates a loop over a Cartesian product specified by `([<fArg1|iterable1|int1>],[<fArg2|iterable2|int2>],+)`.  `<fArg1|iterable1|int1>` must be an expression for an iterable or an integer, or an fArg that evaluates to an expression for an iterable or an integerThis also applies to `<fArg2|iterable2|int2>`.  If this expression is an integer, we take it as a numeric range, converting it into an iterable.  Each such expression is included in the Cartesian product.
-
-If no `<fArg3|expression3>?` is included, then the tuples of the Cartesian product are returned.  If an expression is included, then a list, the size of the Cartesian product, is returned with that expression repeated.  If an fArg is included, then that fArg is evaluated for the elements of each tuple.  `_i` returns the first element of the tuple, `_j` returns the second element, and so on for `_k`, and `_l`.
-
-It is much clearer if we demonstrate:
-```
-from itertools import product
-from pype import _,_i,_j
-
-ls=[1,2]
-pype(ls,[([_],[_])]) <=> product(ls,ls) <=> [(1,1),(1,2),(2,1),(2,2)]
-pype(5,[([_],[_ - 1])]) <=> product(range(5),range(5-1)) <=> [(0,-1),(0,0),...(1,-1),(1,0),(1,1)...]
-
-pype(ls,[([_],[_]), _i + _j]) <=> [i+j for (i,j) in product(ls,ls)] <=> [1+1,1+2,2+1,2+2] <=> [2,3,3,4]
 ```
 
 ## Do expression
@@ -702,13 +680,17 @@ p([1,2],_concat(_,[3,4]) <=> [1,2,3,4]
 
 ## Dict Build
 
-`_d(<<expression1|fArg1>,<expression2|fArg2>>,+) | {<expression|hashFArg>:<expression|fArg>,+}`
+`_d(<<expression1|fArg1>,<expression2|fArg2>>,*) | {<expression|hashFArg>:<expression|fArg>,+}`
 
 This builds a dictionary.  If we use the `_d(..)` syntax, we supply key-value pairs consecutively, ensuring that the evaluation of any fArg for a key is hashable:
 ```
-from pype import d
+from pype import _d
 
 pype(2,_d(1,_+1,3,_+3)) <=> {1:2+1,3:2+3} <=> {1:3,3:5}
+```
+If you only have one fArg expression in the build expression, that fArg will be the key for the accum in the new dictionary:
+```
+pype(2,_d('two')) <=> pype(2,_d('two',_)) <=> {'two':2}
 ```
 If the raw dictionary syntax is used, we must ensure that the dictionary does not contain the key "else", otherwise it will be evaluated as a switch dict:
 ```
@@ -746,7 +728,7 @@ from pype import dissoc
 
 pype({1:2,3:4},_dissoc(1)) <=> {3:4}
 ```
-A commonly used shorthand for assoc is `_d` - `import _dissoc as _d`, although this overrides the `_d` for dict builds, so be careful.
+A commonly used shorthand for assoc is `_d` - `import _dissoc as _d`, although this overrides the `_d` for dict builds, so be careful.  I like to use `_db` for dict build, and `_d` for `dissoc`.  
 
 ## Embedded Pype
 `_p(fArg,+)`
@@ -772,14 +754,19 @@ lists=[[1,2,3,4],
        [2,3],
        [1,2,3,4,5,6,7,8,9]]
 
-pype(lists,[[v(len) > 3]]) 
+pype(lists,{v(len) > 3}) 
 <=> [[1,2,3,4],
      [4,5,6],
      [1,2,3,4,5,6,7,8,9]]
 ```
 By the way, this use of `len` as a PypeVal is so common that it is included in `pype.vals` as `lenf`.
 
-The only unfortunate exception is boolean operators and `in` expressions, which cannot be overriden by Python.  I am working on getting around this by creating other operators which will replace them, `|and|`, `|or|`, etc.
+The only unfortunate exception is boolean operators and `in` expressions, which cannot be overriden by Python.  Instead, use the `~` operator for NOT, the `&` operator for AND, the `|` operator for OR, and the `>>` operator for `in`.  Because of operator precedence, you will need to enclose these statements in parentheses, but this is a small inconvenience:
+```
+pype(lists,{(lenf > 3) & (lenf < 5)}) 
+<=> [[1,2,3,4],
+     [4,5,6]]
+```
 ## `build_pype`
 
 This builds a callable function from a pype expression.  It is especially useful for embedded maps, as de saw above:
@@ -795,6 +782,8 @@ dctLS=[{'name':'car','value':2000},
 
 pype(dctLS,value_multiply) <=> [20000,30,50,10]
 ```
+Right now I am deprecating this feature, as it tends to clutter your code.
+
 ## Pype Helpers
 
 `pype.helpers` is a module containing many helpful operations on lists and dictionaries.  We have already seen `dct_values` and `tup_dct`, but there are several others that are useful, only a few of which we will cover here (most of the functions are one-liners, so you can just browse the code to learn all of them).
@@ -894,6 +883,8 @@ As of today, optimized pype only covers a subset of fArg types:
 * reduces
 * switch dicts
 * dict assocs
+* dict dissocs
+* dict merges
 * list_builds
 * embedded pype
 
@@ -910,7 +901,7 @@ from pype import pype as p
 def process_list(ls):
  return p(ls,
           [_+1],
-	  [[_ > 2]],
+	  {_ > 2},
 	  len,
 	 )
 ```
@@ -921,7 +912,7 @@ from pype import pype as p
 def process_list(ls):
  return p(ls,
           [_+1],
-	  #[[_ > 2]],
+	  #{_ > 2},
 	  #len,
 	 )
 ```
