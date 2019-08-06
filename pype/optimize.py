@@ -775,15 +775,15 @@ DICT_KEY_STORE=Name(id='d_key',ctx=Store())
 DICT_VAL_LOAD=Name(id='d_val',ctx=Load())
 DICT_VAL_STORE=Name(id='d_val',ctx=Store())
 
-def dict_merge_node(fArgs,
-                    accum=ACCUM_LOAD,
-                    dictNodeStore=DICT_NODE_STORE,
-                    dictNodeLoad=DICT_NODE_LOAD,
-                    dictKeyLoad=DICT_KEY_LOAD,
-                    dictKeyStore=DICT_KEY_STORE,
-                    dictValLoad=DICT_VAL_LOAD,
-                    dictValStore=DICT_VAL_STORE,
-                   ):
+def dict_merge_node_old(fArgs,
+                        accum=ACCUM_LOAD,
+                        dictNodeStore=DICT_NODE_STORE,
+                        dictNodeLoad=DICT_NODE_LOAD,
+                        dictKeyLoad=DICT_KEY_LOAD,
+                        dictKeyStore=DICT_KEY_STORE,
+                        dictValLoad=DICT_VAL_LOAD,
+                        dictValStore=DICT_VAL_STORE,
+                       ):
 
     if len(fArgs) > 2:
 
@@ -814,32 +814,50 @@ def dict_merge_node(fArgs,
     return assignList
 
 
+def dict_merge_node(fArgs,
+                    accum=ACCUM_LOAD,
+                   ):
+
+    fArg=fArgs[1]
+    optimizedFArg=optimize_rec(fArg,accum)
+
+    return callable_node_with_args(dct_merge,
+                                   [accum,
+                                    optimizedFArg])
+
+
 
 def replace_dict_merge_names(fArgs,node):
-    # FIX THIS
+    
+    #print('&'*30)
+    #print('replace_dict_merge_names')
+    #print(f'{ast.dump(node)} is node')
 
     fArgs=fArgs[1:]
 
+    #print(f'{fArgs} is fArgs')
+
     if isinstance(node,List):
 
-        nodes=node.elts[2::2]
+        nodes=node.elts
 
     elif isinstance(node,Call):
 
-        nodes=node.args[1::2]
+        nodes=node.args
 
     else:
 
-        raise Exception(f'unacceptable node type {node} for dict assoc')
+        raise Exception(f'unacceptable node type {node} for dict merge')
+
+    #print(f'{[ast.dump(n) for n in nodes]} is nodes')
 
     nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
                        for (fArg,n) in zip(fArgs,nodes)]
 
-    #print(f'{nameReplacedFArgs} is nameReplacedFArgs')
+    #print(f'{_m(*nameReplacedFArgs)} is nameReplacedFArgs')
+    #nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
 
-    nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
-
-    return _a(*nameReplacedPairs)
+    return _m(*nameReplacedFArgs)
 
 
 ##########################
@@ -1096,6 +1114,7 @@ REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
                (is_switch_dict,replace_switch_dict_names),
                (is_dict_assoc,replace_dict_assoc_names),
                (is_dict_dissoc,replace_dict_dissoc_names),
+               (is_dict_merge,replace_dict_merge_names),
                (is_list_build,replace_list_build_names),
                (is_dict_build,replace_dict_build_names),
                (is_embedded_pype,replace_embedded_pype_names),
@@ -1108,9 +1127,11 @@ def assign_node_to_accum(node,accum=ACCUM_STORE):
 
 
 
-
 def parse_literal(fArg):
 
+    #print('='*30)
+    #print('parse_literal')
+    
     if fArg is None:
 
         return None
@@ -1143,6 +1164,12 @@ def parse_literal(fArg):
 
         return Set( elts=[parse_literal(el) for el in fArg],
                     ctx=Load())
+
+    if is_ast_name(fArg):
+
+        return fArg
+
+    # I have no idea why I did this.
 
     return Name(id=get_name(fArg),ctx=Load())
 
@@ -1374,6 +1401,44 @@ def align_node_with_fargs(fArgs,node):
            subNodes=ls[i:len(fArg)]
 '''           
 
+
+def replace_literal_container_names(fArgs,node):
+
+    if isinstance(node,Dict):
+
+        keyNodes=node.keys
+        valNodes=node.values
+        replacedKeys=[replace_with_name_node_rec(fArgKey,keyNode) \
+                      for (fArgKey,keyNode) in zip(fArgs.keys(),keyNodes)]
+        replacedValues=[replace_with_name_node_rec(fArgVal,valNode) \
+                        for (fArgVal,valNode) in zip(fArgs.values(),valNodes)]
+        
+        return {k:v for (k,v) in zip(replacedKeys,replacedValues)}
+
+    if isinstance(node,List):
+
+        elts=node.elts
+
+        return [replace_with_name_node_rec(fArg,node) \
+                for (fArg,node) in zip(fArgs,elts)]
+
+    if isinstance(node,Set):
+        
+        elts=node.elts
+
+        return {replace_with_name_node_rec(fArg,node) \
+                for (fArg,node) in zip(fArgs,elts)}
+
+    if isinstance(node,Tuple):
+
+        elts=node.elts
+
+        return tuple([replace_with_name_node_rec(fArg,node) \
+                      for (fArg,node) in zip(fArgs,elts)])
+
+    return fArgs
+
+
 def replace_with_name_node_rec(fArg,node):
     '''
     When we call pype_with_f_arg_and_tree, there is a problem - in the fArg,
@@ -1395,23 +1460,30 @@ def replace_with_name_node_rec(fArg,node):
     #print(fArg)
 
     isLamTup=is_lam_tup(fArg)
+    isFArg=is_f_arg(fArg)
 
     if is_ast_name(node) \
-       and not is_f_arg(fArg) \
+       and not isFArg \
        and not isLamTup \
        and not isinstance(fArg,PypeVal):
-
-        #print('name node is')
-        #astpretty.pprint(node)
 
         return node
 
     fArg=delam(fArg)
+
+    # Here, we ensure that we get names in dict, tuple, list, and set literals.
+
+    if not isFArg:
+        
+        fArg=replace_literal_container_names(fArg,node)
+
     #pp.pprint(f'fArg is {fArg}')
     #astpretty.pprint(node)
     evls=[f(fArg,node) for (evl_f,f) in REPLACE_PAIRS if evl_f(fArg)]
     fArg=evls[-1] if evls else fArg
     #print('replaced:')
+    #if is_dict(fArg) and 2 in fArg:
+    #    print(f'{ast.dump(fArg[2])}')
     #pp.pprint(fArg)
     #print('='*30)
 
@@ -1755,11 +1827,15 @@ def calc17(n):
             )
 
 
+from pype import _merge as _m
+
 @optimize
 def calc18(ls):
 
+    x=5
+
     return p( ls,
-              _[2,1])
+              _m({2:x}))
               #_d(2,3,12))#{_>2})
 
 if __name__=='__main__':
