@@ -1006,7 +1006,7 @@ def eval_dict_dissoc(accum,fArg):
 
     for f in fArgs:
 
-        del accum[f]
+        accum=dct_dissoc(accum,f)
 
     return args(accum)
 
