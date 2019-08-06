@@ -100,6 +100,17 @@ append='LIST_APPEND'
 concat='LIST_CONCAT'
 while_loop='WHILE_LOOP'
 do='FARG_DO'
+LIST_ARGS=set([embedded_pype,
+               d,
+               assoc,
+               merge,
+               dissoc,
+               l,
+               append,
+               concat,
+               while_loop,
+               do])
+
 
 ###########
 # HELPERS #
@@ -854,7 +865,7 @@ def eval_dict_build(accum,fArgs):
 
         else:
 
-            fArgs={k:v for (k,v) in zip(fArgs[1:],fArgs[2:])}
+            fArgs={k:v for (k,v) in zip(fArgs[1::2],fArgs[2::2])}
 
     # This is so that we can include lamTups in keys but not break the dictionary.
 
