@@ -414,7 +414,6 @@ def key_value_string(keyValuePair):
   
 pype({3:1,4:2,5:3},dct_items,[key_value_string]) <=> ['key is 3, value is 1','key is 4, value is 2','key is 5, value is 3'] 
 ```
-
 ## Reduces
 
 `[(fArg1,),<expression|fArg2>?]`
@@ -436,17 +435,6 @@ pype([1,2,3],[(sm,),6]) <=> 12 + 1 + 2 + 3 <=> 18
 If it is `fArg2` then this `fArg` is first evaluated and then given as the starting value:
 ```
 pype([1,2,3],[(sm,),len]) <=> len([1,2,3]) + 1 + 2 + 3 <=> 3 + 1 + 2 + 3 <=> 9
-```
-
-## Build Pype
-
-Although this is not an fArg, it wraps a pype in a callable function:
-```
-from pype import build_pype
-
-pp=build_pype(add1,add1,add1)
-
-pp(1) <=> pype(1,add1,add1,add1) <=> 4
 ```
 ## Filters
 
@@ -899,12 +887,13 @@ As of today, optimized pype only covers a subset of fArg types:
 * callables
 * mirrors
 * index args
+* filters
 * lambdas
 * indexes
 * maps
+* reduces
 * switch dicts
 * dict assocs
-* dict merges
 * list_builds
 * embedded pype
 
