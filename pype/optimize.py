@@ -1,5 +1,5 @@
 '''
-python3.7 new_my_optimize.py
+python3 optimize.py
 '''
 py_slice=slice
 import pype as pyp
@@ -7,11 +7,13 @@ from pype import is_lambda
 from pype import _,_0,_1,_p
 from pype import _assoc as _a
 from pype import _dissoc as _d
+from pype import _d as _db
 from pype import _merge as _m
 from pype import _l
 from pype import *
 from pype import pype as p
 from pype import pype as pype_f
+from pype import LIST_ARGS
 from itertools import groupby
 from pype.vals import delam,hash_rec
 from pype import INDEX_ARG_DICT
@@ -32,11 +34,53 @@ from functools import wraps
 from copy import deepcopy
 import pprint as pp
 import astpretty
+from inspect import currentframe
+import types
 
 NUMPY_UFUNCS=set(dir(np))
 ACCUM_STORE=Name(id='accum',ctx=Store())
 ACCUM_LOAD=Name(id='accum',ctx=Load())
 RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
+
+
+def is_module(v):
+
+    return isinstance(v,types.ModuleType)
+
+
+def get_name(fArg):
+    '''
+    https://stackoverflow.com/questions/18425225/getting-the-name-of-a-variable-as-a-string/18425523
+    '''
+    callersLocalVars=currentframe().f_back.f_locals.items()
+    varNames=[varName for (varName,varVal) in callersLocalVars if varVal is fArg]
+
+    if not varNames:
+
+        return varNames
+
+    return varNames[0]
+
+
+def get_module_alias(fArg):
+
+    moduleName=fArg.__module__
+    #print(f'{moduleName} is moduleName')
+    #callersLocalVars=currentframe().f_back.f_globals.items()
+    #names=[(varName,varVal) for (varName,varVal) in callersLocalVars \
+    #          if isinstance(varVal,types.ModuleType)]
+    #print(f'{names} is names')
+    callersLocalVars=currentframe().f_back.f_locals.items()
+    varNames=[varName for (varName,varVal) in callersLocalVars \
+              if isinstance(varVal,types.ModuleType) \
+              and varVal.__name__ == moduleName]
+
+    if not varNames:
+
+        return varNames
+
+    return varNames[0]
+
 
 ##########
 # MIRROR #
@@ -82,14 +126,16 @@ def callable_node_with_args(fArg,callableArgs):
                     args=callableArgs)
 
     #print(f'id is {fArg.__name__}')
-    #print(f'module is {fArg.__module__}')
+    #print(f'moduRanle is {fArg.__module__}')
 
     if fArg.__module__ == '__main__':
 
         return Call(func=Name(id=fArgName,ctx=Load()),
                     keywords=[],
                     args=callableArgs)
-    
+
+    #print(f'{get_module_alias(fArg)} is get_module_alias(fArg)')
+
     moduleStrings=fArg.__module__.split('.')
     
     moduleStrings.reverse()
@@ -183,30 +229,29 @@ def is_index(fArg):
         and has_getitem(fArg))
 
 
-def chain_indices(indexedObject,indices):
+def index_val_node(val):
 
-    if not indices:
+    if isinstance(val,int):
 
-        return indexedObject
+        val=Num(n=val)
 
-    index=indices[0]
+    if isinstance(val,str):
 
-    if isinstance(index,int):
+        val=Str(s=val)
 
-        index=Index(value=Num(n=index))
+    '''
+    if is_ast_name(val):
 
-    if isinstance(index,str):
+        val=val
+    '''
 
-        index=Index(value=Str(s=index))
+    return val
 
-    if is_ast_name(index):
-
-        index=Index(value=index)
-
+    '''
     return Subscript(value=chain_indices(indexedObject,indices[1:]),
-                     slice=index,
+                     slice=Index(value=val),
                      ctx=Load())
-
+    '''
 
 def index_node(fArgs,accum=ACCUM_LOAD):
 
@@ -224,11 +269,16 @@ def index_node(fArgs,accum=ACCUM_LOAD):
     #print(f'optimizedIndexedObject is {dump(optimizedIndexedObject)}')
     optimizedIndices=[optimize_rec(f,accum) if is_f_arg(f) else f[0] for f in indices]
     #print(f'{optimizedIndices} is optimizedIndices')
-    ci=chain_indices(optimizedIndexedObject,optimizedIndices)
+    optimizedIndicesNodes=[index_val_node(index) for index in optimizedIndices]
+
+    return callable_node_with_args(get_or_false,
+                                   [optimizedIndexedObject]+optimizedIndicesNodes)
+
+    #ci=chain_indices(optimizedIndexedObject,optimizedIndices)
 
     #print(dump(ci))
 
-    return ci
+    #return ci
 
 
 def replace_index_names(fArgs,node):
@@ -249,7 +299,7 @@ def replace_index_names(fArgs,node):
         raise Exception(f'replace index name, fArgs are {fArgs}'
                         ' node is {dump(node)}')
 
-    indexArgs=[[el] if is_ast_name(el) \
+    indexArgs=[[el] if is_ast_name(el,fArg) \
                 else replace_with_name_node_rec(fArg,el) \
                 for (el,fArg) in zip(nodeIndexArgs,fArgs[1:])]
 
@@ -316,16 +366,22 @@ def replace_lambda_names(fArgs,node):
 
     if isinstance(node,UnaryOp):
 
-        lambdaArg=node.operand if is_ast_name(node) \
+        lambdaArg=node.operand if is_ast_name(node,fArgs[1]) \
                     else replace_with_name_node_rec(fArgs[1],node.operand)
 
         return (fArgs[0],lambdaArg)
 
     if isinstance(node,Compare):
 
-        leftArg=node.left if is_ast_name(node.left) else fArgs[1]
+        leftArg=node.left if is_ast_name(node.left,fArgs[1]) else fArgs[1]
         comparator=node.comparators[0]
-        rightArg=comparator if is_ast_name(comparator) else fArgs[2]
+        rightArg=comparator if is_ast_name(comparator,fArgs[2]) else fArgs[2]
+
+        #print('is comparator')
+        #print(f'node is {ast.dump(node)}')
+        #print(f'left arg is {leftArg}')
+        #print(f'right arg is {rightArg}')
+        #print(f'fArgs[1] is {fArgs[1]}')
 
         return (fArgs[0],leftArg,rightArg)
 
@@ -440,7 +496,6 @@ def map_list_node(fArg,
     return lsComp
 
 
-
 def map_dict_node(fArg,
                   accum=ACCUM_LOAD,
                   loadedDictValue=LOADED_DICT_VALUE):
@@ -544,6 +599,60 @@ def replace_and_filter_names(fArgs,node):
              for (el,fArg) in zip(node.elts[0].elts,fArgs[0])]]
 
 
+#############
+# OR FILTER #
+#############
+
+def any_node(nodes):
+
+    if len(nodes) < 2:
+
+        return nodes
+
+    return BoolOp(op=Or(),
+                  values=nodes)
+
+
+def or_filter_list_node(fArgs,
+                         accum=ACCUM_LOAD,
+                         loadedListElement=LOADED_LIST_ELEMENT,
+                         storedListElement=STORED_LIST_ELEMENT):
+
+    ifAnyNode=any_node([optimize_rec(fArg,loadedListElement) for fArg in fArgs])
+
+    #print('printing and filter list node')
+    #print(ifAllNode)
+
+    listComp=list_comp(accum,loadedListElement,storedListElement,ifAnyNode)
+
+    #astpretty.pprint(ifAllNode)
+
+    return listComp
+
+
+def or_filter_dict_node(fArgs,
+                         accum=ACCUM_LOAD,
+                         loadedDictValue=LOADED_DICT_VALUE):
+
+    ifAnyNode=any_node([optimize_rec(fArg,loadedDictValue) for fArg in fArgs])
+
+    return dict_comp(accum,loadedDictValue,ifAnyNode)
+    
+
+def or_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
+
+    return if_list_or_dict(accum,
+                           fArg,
+                           or_fitler_dict_node,
+                           or_filter_list_node)
+
+
+def replace_or_filter_names(fArgs,node):
+
+    return {replace_with_name_node_rec(fArg,el) \
+            for (el,fArg) in zip(node.elts[0].elts,fArgs[0])}
+
+
 ###############
 # SWITCH_DICT #
 ###############
@@ -586,7 +695,7 @@ replace_switch_dict_names=replace_dict_names
 # DICT ASSOC #
 ##############
 
-def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
+def dict_assoc_node_old(fArgs,accum=ACCUM_LOAD):
 
     keys=fArgs[1::2]
     fArgs=fArgs[2::2]
@@ -607,6 +716,23 @@ def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
     return assignList
 
 
+def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
+
+    key=fArgs[1]
+    fArg=fArgs[2]
+    keyNode=parse_literal(key)
+    optimizedFArg=optimize_rec(fArg)
+
+    if len(fArgs) == 3:
+
+        return callable_node_with_args(dct_assoc,[accum,keyNode,optimizedFArg])
+
+    return callable_node_with_args(dct_assoc,
+                                   [dict_assoc_node(fArgs[2::],accum),
+                                    keyNode,
+                                    optimizedFArg])
+
+
 def replace_dict_assoc_names(fArgs,node):
 
     keys=fArgs[1::2]
@@ -623,6 +749,10 @@ def replace_dict_assoc_names(fArgs,node):
     else:
 
         raise Exception(f'unacceptable node type {node} for dict assoc')
+
+    #print('*'*30)
+    #print(f'{fArgs} is fArgs')
+    #print(f'{[ast.dump(n) for n in nodes]} is nodes')
 
     nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
                        for (fArg,n) in zip(fArgs,nodes)]
@@ -744,7 +874,7 @@ def build_list_f_arg(fArgs,node,f):
 # DICT DISSOC #
 ###############
 
-def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
+def dict_dissoc_node_old(fArgs,accum=ACCUM_LOAD):
 
     fArgs=fArgs[1:]
     dissocList=[]
@@ -764,6 +894,19 @@ def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
     return dissocList
 
    
+def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
+
+    key=fArgs[-1]
+    keyNode=parse_literal(key)
+
+    if len(fArgs) == 2:
+
+        return callable_node_with_args(dct_dissoc,[accum,keyNode])
+
+    return callable_node_with_args(dct_dissoc,
+                                   [dict_dissoc_node(fArgs[:-1],accum),
+                                    keyNode])
+
 def replace_dict_dissoc_names(fArgs,node):
 
     return build_list_f_arg(fArgs,node,_d)
@@ -798,8 +941,25 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
     #pp.pprint(fArg)
     #print([optimize_rec(v,accum) for v in list(fArg.values())])
 
-    keys=[optimize_rec(k,accum) for k in fArg.keys()]
-    vals=[optimize_rec(v,accum) for v in fArg.values()]
+    if is_explicit_dict_build(fArg):
+
+        if len(fArg) >= 3:
+
+            keys=fArg[1::2]
+            vals=fArg[2::2]
+
+        else:
+
+            keys=fArg[1]
+            vals=[accum]
+    
+    else:
+
+        keys=fArg.keys()
+        vals=fArg.values()
+
+    keys=[optimize_rec(k,accum) for k in keys]
+    vals=[optimize_rec(v,accum) for v in vals]
 
     #print('keys:')
     #print([ast.dump(k) for k in keys])
@@ -809,7 +969,15 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
     return Dict(keys=keys,values=vals,ctx=Load())
 
 
-replace_dict_build_names=replace_dict_names
+def replace_dict_build_names(fArg,node):
+
+    if is_explicit_dict_build(fArg):
+
+        return build_list_f_arg(fArg,node,_db)
+
+    return replace_dict_names(fArg,node)
+
+#replace_dict_build_names=replace_dict_names
 
 
 #################
@@ -855,9 +1023,12 @@ def replace_embedded_pype_names(fArgs,node):
     #print('replace_embedded_pype_names')
     
     fArgs=fArgs[1:]
-    nodeArgs=node.args
 
     #print(f'{fArgs} is fArgs')
+    #print(f'{ast.dump(node)} is node')
+
+    nodeArgs=node.args
+
     #print(f'{nodeArgs} is nodeArgs')
 
     replaced=[replace_with_name_node_rec(fArg,n) \
@@ -872,10 +1043,14 @@ def replace_embedded_pype_names(fArgs,node):
 # AST NAMES #
 #############
 
-def is_ast_name(node):
+def is_ast_name(node,fArg=None):
 
-    return isinstance(node,Name) and node.id not in ALL_GETTER_IDS
+    isCallable=False if fArg is None else is_callable(fArg)
 
+    return isinstance(node,Name) \
+        and node.id not in ALL_GETTER_IDS \
+        and not isCallable
+      
 
 def ast_name_node(node,accumNode):
 
@@ -899,9 +1074,12 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_map,{list:map_list_node,
                          dict:map_dict_node,
                          'default':map_dict_or_list_node}),
-                (is_and_filter,{list:and_filter_list_node,
-                                dict:and_filter_dict_node,
-                                'default':and_filter_list_or_dict_node}),
+                #(is_and_filter,{list:and_filter_list_node,
+                #                dict:and_filter_dict_node,
+                #                'default':and_filter_list_or_dict_node}),
+                (is_or_filter,{list:or_filter_list_node,
+                                dict:or_filter_dict_node,
+                                'default':or_filter_list_or_dict_node}),
                 (is_switch_dict,switch_dict_node),
                 (is_dict_assoc,dict_assoc_node),
                 (is_dict_dissoc,dict_dissoc_node),
@@ -913,7 +1091,7 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
 
 REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
                (is_map,replace_map_names),
-               (is_and_filter,replace_and_filter_names),
+               #(is_and_filter,replace_and_filter_names),
                (is_index,replace_index_names),
                (is_switch_dict,replace_switch_dict_names),
                (is_dict_assoc,replace_dict_assoc_names),
@@ -929,20 +1107,6 @@ def assign_node_to_accum(node,accum=ACCUM_STORE):
     return Assign(targets=[accum],value=node)
 
 
-from inspect import currentframe
-
-def get_name(fArg):
-    '''
-    https://stackoverflow.com/questions/18425225/getting-the-name-of-a-variable-as-a-string/18425523
-    '''
-    callersLocalVars=currentframe().f_back.f_locals.items()
-    varNames=[varName for (varName,varVal) in callersLocalVars if varVal is fArg]
-
-    if not varNames:
-
-        return varNames
-
-    return varNames[0]
 
 
 def parse_literal(fArg):
@@ -1090,7 +1254,7 @@ def pype_with_f_arg_and_tree(accum,*fArgs):
     return successiveEvals[-1],list(fArgs),fArgTypes
 
 
-IMPORT_PYPE=ImportFrom(module='new_my_optimize', 
+IMPORT_PYPE=ImportFrom(module='pype.optimize', 
                        names=[alias(name='pype_with_f_arg_and_tree', 
                                     asname=None)])
 
@@ -1144,7 +1308,71 @@ class PypeTreeReplacer(NodeVisitor):
 
         self.generic_visit(node)
 
+
+
+'''
+class FArgCallReplacer(NodeVisitor):
+
+    def __init__(self,glbls):
+
+        self.glbls=glbls
+
+
+    def visit_FunctionDef(self,node):
+
+        body=node.body
+        
+        if isinstance(body[-1],Return):
+
+            fArgNodes=body[-1].value.args[1:]
+            newNodes=[]
+
+            for fArgNode in fArgNodes:
+
+                if isinstance(fArgNode,Call):
+
+                    print(f'{ast.dump(fArgNode)} is fArgNode')
+                    exp=Expression(body=fArgNode)
+                    evalExp=eval(compile(exp,
+                                         filename='<ast>',
+                                         mode='eval'),
+                                 self.glbls)
+                    
+                    if is_list(evalExp) \
+                       and len(evalExp) >= 1 \
+                       and is_string(evalExp[0]) \
+                       and evalExp[0] in LIST_ARGS:
+
+                        pass
+
+                    #newNodes.append(newFArgNode)
+
+                    print(f'{evalExp} is evalExp')
+
+        node.decorator_list=[]
+        node=fix_missing_locations(node)
+
+        self.generic_visit(node)
+'''
+
+'''
+def align_node_with_fargs(fArgs,node):
+
+    if not (isinstance(node,Call) or isinstance(node,List)):
+
+        return node
+
+    ls=get_nodes_for_list_f_arg(node)
     
+    for (i,fArg) in enumerate(fArgs):
+
+        if is_list(fArg) \
+           and len(fArg) >= 1 \
+           and is_string(fArg[0]) \
+           and fArg[0] in LIST_ARGS:
+
+           subNodes=ls[i:len(fArg)]
+'''           
 
 def replace_with_name_node_rec(fArg,node):
     '''
@@ -1200,9 +1428,34 @@ def replace_with_name_node(fArgs,nodes):
             for (fArg,node) in zip(fArgs,nodes)]
 
 
+def add_main_modules(mod,glbls):
+
+    for name in dir(mod):
+
+        attr=getattr(mod,name)
+        modName=''
+
+        if is_callable(attr):
+
+            modName=attr.__module__
+
+        if is_module(attr):
+
+            modName=attr.__name__
+
+        if modName:
+
+            glbls[modName]=__import__(modName)
+
+    return glbls
+
+
 FUNCTION_CACHE={}
 
-def optimize(pype_func,verbose=True):
+#import astpretty
+#import pprint as pp
+
+def optimize(pype_func,verbose=False):
 
     originalFuncName=pype_func.__name__
     glbls=pype_func.__globals__
@@ -1211,11 +1464,8 @@ def optimize(pype_func,verbose=True):
     moduleName=pype_func.__module__
     mod=__import__(moduleName)
     glbls[moduleName]=mod
+    glbls=add_main_modules(mod,glbls)
 
-    #print(f'{aliases} is aliases')
-
-    #pp.pprint(glbls)
-    
     @wraps(pype_func)
     def optimized(*args):
 
@@ -1231,6 +1481,7 @@ def optimize(pype_func,verbose=True):
         tree=parse(src)
         callReplacer=PypeCallReplacer(aliases)
         recompiledReplacerNamespace={}
+        #fArgReplacer=FArgCallReplacer(glbls)
 
         if verbose:
 
@@ -1240,7 +1491,10 @@ def optimize(pype_func,verbose=True):
             print('*'*30)
 
         callReplacer.visit(tree)
+        #print('after callReplacer.visit')
+        #print(f'{ast.dump(tree)}')
 
+        #fArgReplacer.visit(tree)
         #print('*'*30)
         #pp.pprint(optimize.__globals__)
         #print('*'*30)
@@ -1252,8 +1506,8 @@ def optimize(pype_func,verbose=True):
              recompiledReplacerNamespace)
 
         recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
-        # print(recompiled_pype_func(*args))
         v,fArgs,fArgTypes=recompiled_pype_func(*args)
+
         '''
         Second pass, we find anywhere where the pype expression has a reference
         to a variable in the scope of the function, and replace it with a Name.
@@ -1284,10 +1538,12 @@ def optimize(pype_func,verbose=True):
         treeReplacer.visit(tree)
 
         if verbose:
-
+            
             print('*'*30)
             print('parse tree after')
             astpretty.pprint(tree)
+            print('*'*30)
+            #pp.pprint(astunparse.dump(tree))
 
         exec(compile(tree,
                      filename='<ast>',
@@ -1450,33 +1706,61 @@ def calc13(ls):
 
     return p( ls,
               {'el':v*lenf})
+
+@optimize
+def calc14(dct):
+
+    return p( ls,
+              [[_+1]]
+            )
+
+@optimize
+def calc15(ls):
+
+    return p( ls,
+              [[_+1]],
+            )
 '''
 
 import numpy as np
 from pype.helpers import *
 import pype.helpers
-
-def sm_ls(ls):
-
-    return sum(ls)
-
-def another_dict(dct):
-
-    return {'len':len(dct)}
+from pype.vals import lenf
 
 @optimize
-def calc14(dct):
+def calc16(dctLS):
 
-    return p( dct,
-              _m(another_dict),
-              #dct_items,
-              #{'keys':[_0],
-              # 'vals':_p([_1],
-              #           [_a('this',3)],
-              #          )},
+    return p( dctLS,
+              [_a(3,1,5,6)],
             )
 
-# print(calc4({1:2,3:4,8:9,7:9.5,10:11}))
+
+@optimize
+def calc15(ls):
+
+    return p( ls,
+              [[_+1]],
+            )
+
+from pype import _assoc_p as _ap
+
+@optimize
+def calc17(n):
+
+    return p( n,
+              #{'x':_+1,
+              # 'y':_*3},
+              _db('x',_+1,'y',_*3),
+              _a('z',_p(_['x']+_['y'],_*5)),
+            )
+
+
+@optimize
+def calc18(ls):
+
+    return p( ls,
+              _[2,1])
+              #_d(2,3,12))#{_>2})
 
 if __name__=='__main__':
 
@@ -1499,5 +1783,14 @@ if __name__=='__main__':
     #print(calc12([1,2,3,4,5,6])) 
     #print(calc13([[1,2],[3,4],[5,6]])) 
     #print(calc13([[1,2],[3,4],[5,6]])) 
-    print(calc14({'a':1,'b':2,'c':3}))
-    print(calc14({'a':1,'b':2,'c':3}))
+    #print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
+    #print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
+    #print(calc15([[1,2,3],[4,5,6]]))
+    #print(calc15([[1,2,3],[4,5,6]]))
+    #print(calc16([{1:2,3:4}]))
+    #print(calc16([{1:2,3:4}]))
+    #print(calc17(3))
+    #print(calc17(3))
+    print(calc18({2:{5:3},1:8,12:1,13:2,4:3}))
+    print(calc18({2:{5:3},1:8,12:1,13:2,4:3}))
+    #print(calc18([5,8,1,2,3]))
