@@ -21,6 +21,15 @@ def dct_assoc(dct,key,val):
     return dct
 
 
+def dct_dissoc(dct,key):
+
+    if key in dct:
+
+        del dct[key]
+
+    return dct
+
+
 def key_d(dct,key):
 
     return {dct[key]:dct}
