@@ -944,7 +944,7 @@ from pype.val import lenf
 def ls_times_itself(ls):
  return p(ls,
  	  [_+2],
-	  [[_ < 4]],
+	  {_ < 4},
           {'new_len':lenf*2,
 	   'ls':_},
 	  _['ls']*_['new_len'],
@@ -958,7 +958,7 @@ def ls_times_itself(ls):
  sz=len(ls)*2
  return p(ls,
           [_+2],
-	  [[_ < 4]],
+	  {_ < 4},
 	  _*sz,
          )
 ```
