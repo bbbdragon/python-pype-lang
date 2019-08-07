@@ -10,6 +10,7 @@ from pype import _dissoc as _d
 from pype import _d as _db
 from pype import _merge as _m
 from pype import _l
+from pype import _do
 from pype import *
 from pype import pype as p
 from pype import pype as pype_f
@@ -151,6 +152,11 @@ def callable_node_with_args(fArg,callableArgs):
 def callable_node(fArg,accumLoad=ACCUM_LOAD):
 
     return callable_node_with_args(fArg,[accumLoad])
+
+
+def replace_callable_names(fArg,node):
+
+    return fArg
 
 
 #############
@@ -768,52 +774,6 @@ def replace_dict_assoc_names(fArgs,node):
 # DICT MERGE #
 ##############
 
-DICT_NODE_STORE=Name(id='dict_node',ctx=Store())
-DICT_NODE_LOAD=Name(id='dict_node',ctx=Load())
-DICT_KEY_LOAD=Name(id='d_key',ctx=Load())
-DICT_KEY_STORE=Name(id='d_key',ctx=Store())
-DICT_VAL_LOAD=Name(id='d_val',ctx=Load())
-DICT_VAL_STORE=Name(id='d_val',ctx=Store())
-
-def dict_merge_node_old(fArgs,
-                        accum=ACCUM_LOAD,
-                        dictNodeStore=DICT_NODE_STORE,
-                        dictNodeLoad=DICT_NODE_LOAD,
-                        dictKeyLoad=DICT_KEY_LOAD,
-                        dictKeyStore=DICT_KEY_STORE,
-                        dictValLoad=DICT_VAL_LOAD,
-                        dictValStore=DICT_VAL_STORE,
-                       ):
-
-    if len(fArgs) > 2:
-
-        raise Exception(f'fArgs {fArgs} is too long, for now optimizer '
-                        'can only merge one dictionary at a time')
-
-    fArg=fArgs[1]
-    assignList=[Assign(targets=[dictNodeStore],
-                      value=optimize_rec(fArg,accum))]
-    dictValIndex=Index(value=dictKeyLoad)
-    assignToAccum=Assign(targets=[Subscript(value=accum,
-                                           slice=dictValIndex,
-                                           ctx=Store())],
-                         value=dictValLoad)
-    iteration=For(target=Tuple(elts=[dictKeyStore,
-                                     dictValStore],
-                               ctx=Store()),
-                  iter=Call(func=Attribute(value=dictNodeLoad,
-                                           attr='items',
-                                           ctx=Load()),
-                            args=[],
-                            keywords=[]),
-                  body=[assignToAccum],
-                  orelse=[])
-
-    assignList.append(iteration)
-
-    return assignList
-
-
 def dict_merge_node(fArgs,
                     accum=ACCUM_LOAD,
                    ):
@@ -878,6 +838,7 @@ def get_nodes_for_list_f_arg(node):
 
         raise Exception(f'unacceptable node type {node} for dict dissoc')
 
+
 def build_list_f_arg(fArgs,node,f):
 
     fArgs=fArgs[1:]
@@ -891,26 +852,6 @@ def build_list_f_arg(fArgs,node,f):
 ###############
 # DICT DISSOC #
 ###############
-
-def dict_dissoc_node_old(fArgs,accum=ACCUM_LOAD):
-
-    fArgs=fArgs[1:]
-    dissocList=[]
-
-    for fArg in fArgs:
-
-        optimizedFArg=optimize_rec(fArg,accum)
-        index=Index(value=optimizedFArg)
-        subscript=Subscript(value=accum,
-                            slice=index,
-                            ctx=Del()
-                           )
-        delNode=Delete(targets=[subscript])
-
-        dissocList.append(delNode)
-
-    return dissocList
-
    
 def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
 
@@ -924,6 +865,7 @@ def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
     return callable_node_with_args(dct_dissoc,
                                    [dict_dissoc_node(fArgs[:-1],accum),
                                     keyNode])
+
 
 def replace_dict_dissoc_names(fArgs,node):
 
@@ -1057,6 +999,46 @@ def replace_embedded_pype_names(fArgs,node):
     return _p(*replaced)
 
 
+######
+# DO #
+######
+
+def do_lambda_node(node):
+
+    return Lambda(args=arguments(args=[arg(arg='do_lambda_arg', annotation=None)], 
+                                 vararg=None, 
+                                 kwonlyargs=[], 
+                                 kw_defaults=[], 
+                                 kwarg=None, 
+                                 defaults=[]),
+                  body=node)
+
+
+DO_LAMBDA_ARG=Name(id='do_lambda_arg',ctx=Load())
+
+def do_node(fArgs,accum=ACCUM_LOAD):
+
+    fArg=fArgs[1]
+    optimizedNode=optimize_rec(fArg,DO_LAMBDA_ARG)
+    lambdaNode=do_lambda_node(optimizedNode)
+    callNode=callable_node_with_args(do_func,
+                                     [accum,
+                                      lambdaNode])
+
+    #print(f'{callNode} is callNode')
+
+    return callNode
+
+
+def replace_do_names(fArgs,node):
+
+    fArg=fArgs[1]
+    node=node.args[0]
+    replacedFArg=replace_with_name_node_rec(fArg,node)
+
+    return _do(replacedFArg)
+
+
 #############
 # AST NAMES #
 #############
@@ -1105,10 +1087,12 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_list_build,list_build_node),
                 (is_dict_build,dict_build_node),
                 (is_embedded_pype,embedded_pype_node),
+                (is_do,do_node),
                ]
 
 REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
                (is_map,replace_map_names),
+               (is_callable,replace_callable_names),
                #(is_and_filter,replace_and_filter_names),
                (is_index,replace_index_names),
                (is_switch_dict,replace_switch_dict_names),
@@ -1118,6 +1102,7 @@ REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
                (is_list_build,replace_list_build_names),
                (is_dict_build,replace_dict_build_names),
                (is_embedded_pype,replace_embedded_pype_names),
+               (is_do,replace_do_names),
               ]
 
 
@@ -1675,123 +1660,6 @@ def concat(ls):
 def sm(x,y): return x+y
 
 '''
-@optimize
-def calc(ls):
-
-    return p(ls,
-             concat,
-             concat,
-             (sm,_0,_1),
-            )
-
-
-def add1(x): return x+1
-
-def calc2(ls):
-
-    return p(ls,
-             concat,
-             concat,
-             [add1])
-
-@optimize
-def calc3(dct):
-
-    return p( dct,
-              [add1])
-@optimize
-def calc4(ls):
-
-    return p( ls,
-              [[_ > 5,_ < 10]])
-
-@optimize
-def calc5(n):
-
-    return p( n,
-              {_ > 1: "greater than 1",
-               _ < 0: "negative",
-               'else': "not greater than 1"})
-@optimize
-def calc6(ls):
-
-    x=3
-
-    return p( ls,
-              _[1:][1],
-              _+x)
-@optimize
-def calc7(ls):
-
-    x=3
-
-    return p(ls,
-             [_+x])
-
-@optimize
-def calc8(ls):
-
-    x=3
-
-    return p(ls,
-             [[_>x]])
-
-
-@optimize
-def calc9(ls):
-
-    x=1
-
-    return p(ls,
-             _[x])
-
-@optimize
-def calc10(dct):
-
-    s='whatever'
-
-    return p(dct,
-             _a('length',s))
-@optimize
-def calc11(dct):
-
-    lenKey=1
-    s='whatever'
-
-    return p(dct,
-             _a('length',s),
-             _d(lenKey))
-
-@optimize
-def calc12(ls):
-
-    return p(ls,
-             (zip,_,_[1:]),
-             [_l(_0,_1)],
-            ) 
-
-from pype.vals import lenf
-@optimize
-def calc13(ls):
-
-    v=[1]
-
-    return p( ls,
-              {'el':v*lenf})
-
-@optimize
-def calc14(dct):
-
-    return p( ls,
-              [[_+1]]
-            )
-
-@optimize
-def calc15(ls):
-
-    return p( ls,
-              [[_+1]],
-            )
 '''
 
 import numpy as np
@@ -1829,14 +1697,22 @@ def calc17(n):
 
 from pype import _merge as _m
 
+def change_list(ls):
+
+    ls.append(1000)
+
+
 @optimize
 def calc18(ls):
 
     x=5
 
     return p( ls,
-              _m({2:x}))
-              #_d(2,3,12))#{_>2})
+              _do(change_list),
+              #_m({2:x}),
+              #_d(2,3,12)),
+              #{_>2},
+             )
 
 if __name__=='__main__':
 
@@ -1867,6 +1743,6 @@ if __name__=='__main__':
     #print(calc16([{1:2,3:4}]))
     #print(calc17(3))
     #print(calc17(3))
-    print(calc18({2:{5:3},1:8,12:1,13:2,4:3}))
-    print(calc18({2:{5:3},1:8,12:1,13:2,4:3}))
+    print(calc18([1,2,3,4]))
+    print(calc18([1,2,3,4]))
     #print(calc18([5,8,1,2,3]))
