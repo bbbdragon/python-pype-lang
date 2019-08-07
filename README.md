@@ -1000,7 +1000,22 @@ js2=deepcopy(js1)
 val1=some_pype_func(js1)
 val2=some_other_pype_func(js2)
 ```
+Howevwer, pype's natural habitat is a microservice, so you're going to see/write a lot of code like this:
+```
+from pype import pype as p
+from pype import _d as _db # dict build
+from flask import request, jsonify
 
+@app.route('/add',methods=['POST'])
+def add():
+
+   return p( request.get_json(force=True),
+             _['numbers'],
+	     _db('sum',sum),
+	     jsonify,
+	   )  
+```
+Within the scope of the routing function, you're not going to need a lot of immutability anyway.
 # Conclusion
 
 You could do worse.  You probably have.  Use pype.
