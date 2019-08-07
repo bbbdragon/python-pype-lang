@@ -886,6 +886,7 @@ As of today, optimized pype only covers a subset of fArg types:
 * dict dissocs
 * dict merges
 * list_builds
+* do expressions
 * embedded pype
 
 The optimizer is a work in progress, so it is best to first ensure your program runs in interpreted pype, and apply the `optimize` decorator to each function, testing along the way.
