@@ -974,9 +974,8 @@ def eval_dict_merge(accum,fArg):
                         'is of non-mapping type {}'.format(type(accum)))
 
 
-    for (k,v) in fArg.items():
-
-        accum[eval_or_val(accum,k)]=eval_or_val(accum,v)
+    mergedDict={eval_or_val(accum,k):eval_or_val(accum,v) for (k,v) in fArg.items()}
+    accum=dct_merge(accum,mergedDict)
 
     return args(accum)
 
@@ -1386,14 +1385,14 @@ def is_do(fArg):
     return is_list(fArg) and len(fArg) > 1 and fArg[0] == do
 
 
-def eval_do(accum,fArgs):
+def eval_do(accum,fArg):
 
     #print('eval_do')
     #print('{} is accum'.format(accum))
     #print('{} is fArgs'.format(fArgs))
 
     accum=accum[ARGS][0]
-    newAccum=eval_or_val(accum,fArgs[1])
+    newAccum=eval_or_val(accum,fArg[1])
 
     #print('{} is newAccum'.format(newAccum))
     #print('{} is accum'.format(accum))
@@ -1405,9 +1404,10 @@ def eval_do(accum,fArgs):
     return args(newAccum)
 
 
-def _do(fArgs):
+def _do(fArg):
 
-    return [do,fArgs]
+    return [do,fArg]
+
 
 ########
 # MAIN #
