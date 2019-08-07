@@ -387,3 +387,14 @@ def get_by_key_or_false(dct,dctKey,*keys):
         d=d[key]
 
     return d[dctKey]
+
+    
+def do_func(accum,f):
+
+    result=f(accum)
+
+    if result == None:
+        
+        return accum
+
+    return result
