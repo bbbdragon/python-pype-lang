@@ -270,12 +270,19 @@ def index_node(fArgs,accum=ACCUM_LOAD):
         indexedObject=fArgs[1]
         indices=fArgs[2:]
 
-    #print(f'optimizing indexedObject {indexedObject}')
     optimizedIndexedObject=optimize_rec(indexedObject,accum) # Should just be a mirror
-    #print(f'optimizedIndexedObject is {dump(optimizedIndexedObject)}')
     optimizedIndices=[optimize_rec(f,accum) if is_f_arg(f) else f[0] for f in indices]
-    #print(f'{optimizedIndices} is optimizedIndices')
     optimizedIndicesNodes=[index_val_node(index) for index in optimizedIndices]
+
+    if optimizedIndicesNodes \
+       and isinstance(optimizedIndicesNodes[0],Slice):
+
+        # You need to make this more general - the syntax for indexing and slicing
+        # is not coherent.
+
+        return Subscript(value=optimizedIndexedObject,
+                         slice=optimizedIndicesNodes[0],
+                         ctx=Load())
 
     return callable_node_with_args(get_or_false,
                                    [optimizedIndexedObject]+optimizedIndicesNodes)
@@ -298,7 +305,14 @@ def replace_index_names(fArgs,node):
 
     elif isinstance(node,Subscript):
 
-        nodeIndexArgs=[node.slice.value]
+        if hasattr(node.slice,'value'):
+
+            nodeIndexArgs=[node.slice.value]
+
+        else:
+
+            nodeIndexArgs=[node.slice.lower,node.slice.upper]
+            nodeIndexArgs=[ni for ni in nodeIndexArgs if ni is not None]
 
     else:
 
@@ -491,8 +505,6 @@ def map_list_node(fArg,
 
     mapFArg=fArg[0]
 
-    #print(f'{mapFArg} is mapFArg')
-
     mapNode=optimize_rec(mapFArg,loadedListElement)
     lsComp=list_comp(accum,mapNode,storedListElement)
 
@@ -519,11 +531,11 @@ def map_dict_node(fArg,
 
 def if_list_or_dict(accum,fArg,dict_func,list_func):
 
-    IfExp(test=Call(func=Name(id='is_dict',ctx=Load()),
-                    args=[accum],
-                    keywords=[]),
-          body=dict_func(fArg),
-          orelse=list_func(fArg))
+    return IfExp(test=Call(func=Name(id='is_dict_helper',ctx=Load()),
+                           args=[accum],
+                           keywords=[]),
+                 body=dict_func(fArg,accum),
+                 orelse=list_func(fArg,accum))
            
 
 def map_dict_or_list_node(fArg,accum=ACCUM_LOAD):
@@ -631,8 +643,6 @@ def or_filter_list_node(fArgs,
 
     listComp=list_comp(accum,loadedListElement,storedListElement,ifAnyNode)
 
-    #astpretty.pprint(ifAllNode)
-
     return listComp
 
 
@@ -640,16 +650,36 @@ def or_filter_dict_node(fArgs,
                          accum=ACCUM_LOAD,
                          loadedDictValue=LOADED_DICT_VALUE):
 
+    #print('&'*30)
+    #print(f'{ast.dump(accum)} is accum')
     ifAnyNode=any_node([optimize_rec(fArg,loadedDictValue) for fArg in fArgs])
+    #dc=dict_comp(accum,loadedDictValue,ifAnyNode)
+    #print(f'{ast.dump(dc)} is accum')
 
     return dict_comp(accum,loadedDictValue,ifAnyNode)
     
 
-def or_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
+def or_filter_list_or_dict_node(fArg,accum=ACCUM_LOAD):
+
+    '''
+    print('='*30)
+    print('or_filter_list_or_dict_node')
+    print(f'{fArg} is fArg')
+    print(f'{ast.dump(accum)} is accum')
+
+    print('or_filter_list_or_dict_node')
+    print(f'{fArg} is fArg')
+    print(f'{accum} is accum')
+    v=if_list_or_dict(accum,
+                      fArg,
+                      or_filter_dict_node,
+                      or_filter_list_node)
+    print(f'{v} is v')
+    '''
 
     return if_list_or_dict(accum,
                            fArg,
-                           or_fitler_dict_node,
+                           or_filter_dict_node,
                            or_filter_list_node)
 
 
@@ -1071,15 +1101,17 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_lambda,lambda_node),
                 (is_slice,slice_node),
                 (is_index,index_node),
-                (is_map,{list:map_list_node,
-                         dict:map_dict_node,
-                         'default':map_dict_or_list_node}),
+                (is_map,map_dict_or_list_node),
+                #(is_map,{list:map_list_node,
+                #         dict:map_dict_node,
+                #         'default':map_dict_or_list_node}),
                 #(is_and_filter,{list:and_filter_list_node,
                 #                dict:and_filter_dict_node,
                 #                'default':and_filter_list_or_dict_node}),
-                (is_or_filter,{list:or_filter_list_node,
-                                dict:or_filter_dict_node,
-                                'default':or_filter_list_or_dict_node}),
+                (is_or_filter,or_filter_list_or_dict_node),
+                #(is_or_filter,{list:or_filter_list_node,
+                #                dict:or_filter_dict_node,
+                #                'default':or_filter_list_or_dict_node}),
                 (is_switch_dict,switch_dict_node),
                 (is_dict_assoc,dict_assoc_node),
                 (is_dict_dissoc,dict_dissoc_node),
@@ -1094,7 +1126,7 @@ REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
                (is_map,replace_map_names),
                (is_callable,replace_callable_names),
                #(is_and_filter,replace_and_filter_names),
-               (is_index,replace_index_names),
+               #(is_index,replace_index_names),
                (is_switch_dict,replace_switch_dict_names),
                (is_dict_assoc,replace_dict_assoc_names),
                (is_dict_dissoc,replace_dict_dissoc_names),
@@ -1159,25 +1191,36 @@ def parse_literal(fArg):
     return Name(id=get_name(fArg),ctx=Load())
 
 
-def optimize_rec(fArg,accumNode=ACCUM_LOAD,evalType=None):
+def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
-    #print('>'*30)
-    #print('optimize_rec')
-    #print(fArg)
+    print('>'*30)
+    print('optimize_rec')
+    print(fArg)
 
     fArg=delam(fArg)
     optimizers=[opt_f for (evl_f,opt_f) in OPTIMIZE_PAIRS if evl_f(fArg)]
-    evalType=type(fArg) if evalType is None else evalType
+    evalType=type(fArg)# if evalType is None else evalType
 
     if not optimizers:
 
         return parse_literal(fArg)
 
+    print(f'{optimizers} is optimizers')
+
     optimizer=optimizers[-1]
+    
+    print(f'{optimizer} is optimizer')
 
     if is_dict(optimizer):
 
+        print(f'optimizer is dict')
+        print(f'{evalType} is evalType')
+
         if evalType in optimizer:
+
+            print(f'{optimizers} is optimizers')
+            print(f'{evalType} is evalType')
+            print(f'{optimizer} is optimizer')
 
             optimizer=optimizer[evalType]
 
@@ -1198,7 +1241,7 @@ def optimize_f_args(fArgs,fArgTypes,startNode):
 
     for fArg,fArgType in zip(fArgs,fArgTypes):
 
-        opt=optimize_rec(fArg,ACCUM_LOAD,fArgType)
+        opt=optimize_rec(fArg,ACCUM_LOAD)#,fArgType)
         
         if is_list(opt):
 
@@ -1502,6 +1545,8 @@ def add_main_modules(mod,glbls):
 
         if modName:
 
+            #print(f'importing {modName}')
+
             glbls[modName]=__import__(modName)
 
     return glbls
@@ -1520,6 +1565,7 @@ def optimize(pype_func,verbose=False):
     src=getsource(pype_func)
     moduleName=pype_func.__module__
     mod=__import__(moduleName)
+    #print(f'{mod} is moduleName')
     glbls[moduleName]=mod
     glbls=add_main_modules(mod,glbls)
 
@@ -1638,7 +1684,7 @@ def optimize(pype_func,verbose=False):
     return optimized
 
 
-def time(func):
+def time_func(func):
 
     originalFuncName=func.__name__
 
@@ -1646,7 +1692,7 @@ def time(func):
 
         t0=tm.time()
         v=func(*args)
-        #print(f'time to run {originalFuncName}: {tm.time() - t0}')
+        print(f'time to run {originalFuncName}: {tm.time() - t0}')
 
         return v
 
