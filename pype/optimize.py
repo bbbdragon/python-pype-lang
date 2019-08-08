@@ -531,7 +531,7 @@ def map_dict_node(fArg,
 
 def if_list_or_dict(accum,fArg,dict_func,list_func):
 
-    return IfExp(test=Call(func=Name(id='is_dict_helper',ctx=Load()),
+    return IfExp(test=Call(func=Name(id='is_dict',ctx=Load()),
                            args=[accum],
                            keywords=[]),
                  body=dict_func(fArg,accum),
@@ -1193,9 +1193,9 @@ def parse_literal(fArg):
 
 def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
-    print('>'*30)
-    print('optimize_rec')
-    print(fArg)
+    #print('>'*30)
+    #print('optimize_rec')
+    #print(fArg)
 
     fArg=delam(fArg)
     optimizers=[opt_f for (evl_f,opt_f) in OPTIMIZE_PAIRS if evl_f(fArg)]
@@ -1205,22 +1205,23 @@ def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
         return parse_literal(fArg)
 
-    print(f'{optimizers} is optimizers')
+    #print(f'{optimizers} is optimizers')
 
     optimizer=optimizers[-1]
     
-    print(f'{optimizer} is optimizer')
+    #print(f'{optimizer} is optimizer')
 
+    # TODO - either get rid of this or implement it properly
     if is_dict(optimizer):
 
-        print(f'optimizer is dict')
-        print(f'{evalType} is evalType')
+        #print(f'optimizer is dict')
+        #print(f'{evalType} is evalType')
 
         if evalType in optimizer:
 
-            print(f'{optimizers} is optimizers')
-            print(f'{evalType} is evalType')
-            print(f'{optimizer} is optimizer')
+            #print(f'{optimizers} is optimizers')
+            #print(f'{evalType} is evalType')
+            #print(f'{optimizer} is optimizer')
 
             optimizer=optimizer[evalType]
 
