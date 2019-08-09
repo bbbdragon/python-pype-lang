@@ -3,6 +3,7 @@ from collections import defaultdict
 import itertools
 from copy import deepcopy
 from operator import itemgetter
+import pprint as pp
 
 def pair_dd(f=lambda:int()):
 
@@ -97,7 +98,7 @@ import pprint as pp
 
 def tup_ls_dct(tups):
 
-    return reduce(add_tup_ls_dct,tups,defaultdict(lambda:list()))
+    return dict(reduce(add_tup_ls_dct,tups,defaultdict(lambda:list())))
 
 
 def add_empty_ls(dct,key):
@@ -148,6 +149,11 @@ def merge_ls_dct_no_key(dctLS,key):
     '''
     gets rid of key in the added value
     '''
+    #print('*'*30)
+    #print('merge_ls_dct_no_key')
+    #print(f'{key} is key')
+    #pp.pprint(dctLS)
+
     dd=reduce(lambda h,dct:add_to_ls_dct_no_key(h,dct[key],key,dct),
               dctLS,
               defaultdict(lambda:list()))
@@ -214,6 +220,11 @@ def merge_dcts(dctLS):
     return reduce(dct_merge,dctLS)
 
 
+def merge_dcts_vals(dctLS):
+
+    return reduce(dct_merge_vals,dctLS)
+
+
 def jn(ls):
 
     return ' '.join(ls)
@@ -266,6 +277,11 @@ def dct_items(dct):
 def dct_values(dct):
 
     return list(dct.values())
+
+
+def dct_keys(dct):
+
+    return list(dct.keys())
 
 
 def filter_by_indices(ls,indices):
@@ -398,3 +414,52 @@ def do_func(accum,f):
         return accum
 
     return result
+
+
+def is_dict_helper(accum):
+
+    return isinstance(accum,dict)
+
+
+def reverse_ls_dct(dct):
+
+    dd=defaultdict(lambda:list())
+    
+    for (k,ls) in dct.items():
+
+        for v in ls:
+
+            dd[v].append(k)
+
+    return dict(dd)
+
+
+def empty_ls_dct(keys):
+
+    return {key:[] for key in keys}
+
+
+def ls_dct_product(dct):
+
+    prod=[]
+
+    for k,ls in dct.items():
+
+        for v in ls:
+
+            prod.append((k,v))
+
+    return prod
+
+
+def reverse_dct_vals(dct):
+
+    newD=defaultdict(lambda:dict())
+
+    for (k1,d) in dct.items():
+
+        for (k2,v) in d.items(): 
+
+            newD[k2][k1]=v
+
+    return dict(newD)

@@ -143,7 +143,7 @@ class LamTup(object):
 
     def __rtruediv__(self,other):
 
-        return LampTup(truediv,other,self.val())
+        return LamTup(truediv,other,self.val())
 
     def __mod__(self,other):
 
