@@ -737,7 +737,7 @@ This embeds a pype expression in an fArg.  The accum passed to the embedding fAr
 ```
 from pype import _p
 
-pype([1,2,3,4,5,6],{"number greater than 3":_p([[_ > 3]],len), "number less than three":_p([[_ < 3]],len])})
+pype([1,2,3,4,5,6],{"number greater than 3":_p({_ > 3},len), "number less than three":_p({_ < 3},len])})
 <=> {"number greater than 3": 3, "number less than 3": 2}
 ```
 
