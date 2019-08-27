@@ -48,7 +48,6 @@ RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
 ###########
 
 def is_f_arg_for_node(v):
-    print('in is_f_arg')
 
     return is_f_arg(v) or is_bookmark(v)
 
