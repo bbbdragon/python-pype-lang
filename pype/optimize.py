@@ -1274,7 +1274,7 @@ FUNCTION_CACHE={}
 #import astpretty
 #import pprint as pp
 
-def optimize(pype_func,verbose=True):
+def optimize(pype_func,verbose=False):
 
     originalFuncName=pype_func.__name__
     src=getsource(pype_func)
@@ -1385,8 +1385,6 @@ def optimize(pype_func,verbose=True):
              glbls,
              recompiledReplacerNamespace)
 
-        return None
-
         recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
         '''
         This is extremely dangerous, but the alternative is to add a flag to the
@@ -1406,11 +1404,7 @@ def optimize(pype_func,verbose=True):
         #print(f'{pype_func.__module__} is module')
         #print('*'*30)
 
-        '''
-        Still, we don't want to waste the first function call, so we return the value
-        of the first function call.  
-        '''
-        return v
+        return FUNCTION_CACHE[originalFuncName](*args)
 
     return optimized
 
@@ -1443,5 +1437,6 @@ def test_f(ls):
 
 if __name__=='__main__':
 
+    print(test_f([1,2,3]))
     print(test_f([1,2,3]))
     #print(test_f([1,2]))
