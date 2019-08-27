@@ -43,6 +43,15 @@ ACCUM_STORE=Name(id='accum',ctx=Store())
 ACCUM_LOAD=Name(id='accum',ctx=Load())
 RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
 
+###########
+# HELPERS #
+###########
+
+def is_f_arg_for_node(v):
+    print('in is_f_arg')
+
+    return is_f_arg(v) or is_bookmark(v)
+
 
 def is_module(v):
 
@@ -154,11 +163,6 @@ def callable_node(fArg,accumLoad=ACCUM_LOAD):
     return callable_node_with_args(fArg,[accumLoad])
 
 
-def replace_callable_names(fArg,node):
-
-    return fArg
-
-
 #############
 # INDEX ARG #
 #############
@@ -261,18 +265,26 @@ def index_val_node(val):
 
 def index_node(fArgs,accum=ACCUM_LOAD):
 
+    #print('='*30)
+    #print('index_node')
     #print(f'computing index node {fArgs}')
     indexedObject=fArgs[0]
-    indices=fArgs[1:]
+    indices=[f[0] for f in fArgs[1:]]
 
     if is_callable(fArgs[0]) and fArgs[0] == getitem:
         
         indexedObject=fArgs[1]
         indices=fArgs[2:]
-
+    
+    #print(f'{indexedObject} is indexedObject')
+    #print(f'{dump(accum)} is accum')
     optimizedIndexedObject=optimize_rec(indexedObject,accum) # Should just be a mirror
-    optimizedIndices=[optimize_rec(f,accum) if is_f_arg(f) else f[0] for f in indices]
+    #print(f'{ast.dump(optimizedIndexedObject)} is optimizedIndexedObject')
+    optimizedIndices=[optimize_rec(i,accum) if is_f_arg_for_node(i) \
+                      else i for i in indices]
+    #print(f'{[dump(n) for n in optimizedIndices]} is optimizedIndices')
     optimizedIndicesNodes=[index_val_node(index) for index in optimizedIndices]
+    #print(f'{[dump(n) for n in optimizedIndicesNodes]} is optimizedIndicesNodes')
 
     if optimizedIndicesNodes \
        and isinstance(optimizedIndicesNodes[0],Slice):
@@ -293,41 +305,6 @@ def index_node(fArgs,accum=ACCUM_LOAD):
 
     #return ci
 
-
-def replace_index_names(fArgs,node):
-
-    #print('replace_index_names')
-    #astpretty.pprint(node)
-
-    if isinstance(node,Tuple):
-
-        nodeIndexArgs=[el.elts[0] for el in node.elts[1:]]
-
-    elif isinstance(node,Subscript):
-
-        if hasattr(node.slice,'value'):
-
-            nodeIndexArgs=[node.slice.value]
-
-        else:
-
-            nodeIndexArgs=[node.slice.lower,node.slice.upper]
-            nodeIndexArgs=[ni for ni in nodeIndexArgs if ni is not None]
-
-    else:
-
-        raise Exception(f'replace index name, fArgs are {fArgs}'
-                        ' node is {dump(node)}')
-
-    indexArgs=[[el] if is_ast_name(el,fArg) \
-                else replace_with_name_node_rec(fArg,el) \
-                for (el,fArg) in zip(nodeIndexArgs,fArgs[1:])]
-
-    #print(f'{nodeIndexArgs} is nodeIndexArgs')
-    #print(f'{indexArgs} is indexedArgs')
-
-    return (fArgs[0],*indexArgs)
-
     
 ##########
 # LAMBDA #
@@ -345,7 +322,7 @@ def is_lambda(fArg):
         and len(fArg) >= 1 \
         and not is_mirror(fArg[0]) \
         and fArg[0] != py_slice \
-        and is_f_arg(fArg[0])
+        and is_f_arg_for_node(fArg[0])
 
 
 def lambda_node(fArgs,accum=ACCUM_LOAD):
@@ -363,73 +340,7 @@ def lambda_node(fArgs,accum=ACCUM_LOAD):
     optimizedLambdaArgs=[optimize_rec(fArg,accum) for fArg in fArgs[1:]]
 
     return callable_node_with_args(fArgs[0],optimizedLambdaArgs)
-
-
-def replace_lambda_names(fArgs,node):
-
-    #print('*'*30)
-    #print('replace_lambda_names')
-    #print(f'{fArgs} is fArgs')
-    #print(f'{node} is node')
-    #print(f'{has_getitem(fArgs)} is has_getitem(fArgs)')
-
-    # You may need to parse the fArg[0]
-
-    if isinstance(node,BinOp):
-
-        leftArg=replace_with_name_node_rec(fArgs[1],node.left)
-        rightArg=replace_with_name_node_rec(fArgs[2],node.right)
-
-        #print(f'rightArg is {dump(rightArg) if is_ast_name(rightArg) else rightArg}')
-
-        return (fArgs[0],leftArg,rightArg)
-
-    if isinstance(node,UnaryOp):
-
-        lambdaArg=node.operand if is_ast_name(node,fArgs[1]) \
-                    else replace_with_name_node_rec(fArgs[1],node.operand)
-
-        return (fArgs[0],lambdaArg)
-
-    if isinstance(node,Compare):
-
-        leftArg=node.left if is_ast_name(node.left,fArgs[1]) else fArgs[1]
-        comparator=node.comparators[0]
-        rightArg=comparator if is_ast_name(comparator,fArgs[2]) else fArgs[2]
-
-        #print('is comparator')
-        #print(f'node is {ast.dump(node)}')
-        #print(f'left arg is {leftArg}')
-        #print(f'right arg is {rightArg}')
-        #print(f'fArgs[1] is {fArgs[1]}')
-
-        return (fArgs[0],leftArg,rightArg)
-
-    if isinstance(node,Tuple):
         
-        lambdaArgs=[replace_with_name_node_rec(fArg,el) \
-                    for (fArg,el) in zip(fArgs,node.elts)]
-
-        return tuple(lambdaArgs)
-
-    if isinstance(node,Subscript):
-
-        nodeList=node.value
-
-        if isinstance(node.slice,Slice):
-
-            nodeList.extend([node.slice.lower,node.slice.upper])
-        
-        elif isinstance(node.slice,Index):
-
-            nodeList.append(node.slice.value)
-
-        return tuple([replace_with_name_node_rec(fArg) \
-                      for (fArg,el) in zip(fArgs,nodeList)])
-
-    return fArgs
-        
-
 
 ##############################
 # HELPERS FOR MAP AND FILTER #
@@ -546,12 +457,6 @@ def map_dict_or_list_node(fArg,accum=ACCUM_LOAD):
                         'Use separate maps instead.')
     
     return if_list_or_dict(accum,fArg,map_dict_node,map_list_node)
-
-
-def replace_map_names(fArgs,node):
-
-    return [replace_with_name_node_rec(fArg,el) \
-            for (el,fArg) in zip(node.elts,fArgs)]
                  
     
 ##############
@@ -609,12 +514,6 @@ def and_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
                            fArg,
                            and_fitler_dict_node,
                            and_filter_list_node)
-
-
-def replace_and_filter_names(fArgs,node):
-
-    return [[replace_with_name_node_rec(fArg,el) \
-             for (el,fArg) in zip(node.elts[0].elts,fArgs[0])]]
 
 
 #############
@@ -683,12 +582,6 @@ def or_filter_list_or_dict_node(fArg,accum=ACCUM_LOAD):
                            or_filter_list_node)
 
 
-def replace_or_filter_names(fArgs,node):
-
-    return {replace_with_name_node_rec(fArg,el) \
-            for (el,fArg) in zip(node.elts[0].elts,fArgs[0])}
-
-
 ###############
 # SWITCH_DICT #
 ###############
@@ -715,16 +608,6 @@ def switch_dict_node(fArg,accum=ACCUM_LOAD):
     
     return chain_if_else(switchDictList,elseFArg)
 
-
-def replace_dict_names(fArgs,nodes):
-
-     nodePairs=zip(nodes.keys,nodes.values)
-
-     return {replace_with_name_node_rec(k,nk):replace_with_name_node_rec(v,nv) \
-             for ((k,v),(nk,nv)) in zip(fArgs.items(),nodePairs)}
-
-
-replace_switch_dict_names=replace_dict_names
    
 
 ##############
@@ -769,37 +652,6 @@ def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
                                     optimizedFArg])
 
 
-def replace_dict_assoc_names(fArgs,node):
-
-    keys=fArgs[1::2]
-    fArgs=fArgs[2::2]
-
-    if isinstance(node,List):
-
-        nodes=node.elts[2::2]
-
-    elif isinstance(node,Call):
-
-        nodes=node.args[1::2]
-
-    else:
-
-        raise Exception(f'unacceptable node type {node} for dict assoc')
-
-    #print('*'*30)
-    #print(f'{fArgs} is fArgs')
-    #print(f'{[ast.dump(n) for n in nodes]} is nodes')
-
-    nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
-                       for (fArg,n) in zip(fArgs,nodes)]
-
-    #print(f'{nameReplacedFArgs} is nameReplacedFArgs')
-
-    nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
-
-    return _a(*nameReplacedPairs)
-
-
 ##############
 # DICT MERGE #
 ##############
@@ -815,39 +667,6 @@ def dict_merge_node(fArgs,
                                    [accum,
                                     optimizedFArg])
 
-
-
-def replace_dict_merge_names(fArgs,node):
-    
-    #print('&'*30)
-    #print('replace_dict_merge_names')
-    #print(f'{ast.dump(node)} is node')
-
-    fArgs=fArgs[1:]
-
-    #print(f'{fArgs} is fArgs')
-
-    if isinstance(node,List):
-
-        nodes=node.elts
-
-    elif isinstance(node,Call):
-
-        nodes=node.args
-
-    else:
-
-        raise Exception(f'unacceptable node type {node} for dict merge')
-
-    #print(f'{[ast.dump(n) for n in nodes]} is nodes')
-
-    nameReplacedFArgs=[replace_with_name_node_rec(fArg,n)\
-                       for (fArg,n) in zip(fArgs,nodes)]
-
-    #print(f'{_m(*nameReplacedFArgs)} is nameReplacedFArgs')
-    #nameReplacedPairs=[v for pr in zip(keys,nameReplacedFArgs) for v in pr]
-
-    return _m(*nameReplacedFArgs)
 
 
 ##########################
@@ -895,11 +714,6 @@ def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
     return callable_node_with_args(dct_dissoc,
                                    [dict_dissoc_node(fArgs[:-1],accum),
                                     keyNode])
-
-
-def replace_dict_dissoc_names(fArgs,node):
-
-    return build_list_f_arg(fArgs,node,_d)
     
 
 ##############
@@ -913,11 +727,6 @@ def list_build_node(fArgs,accum=ACCUM_LOAD):
     
     return List(elts=optimizedFArgs,
                 ctx=Load())
-
-
-def replace_list_build_names(fArgs,node):
-
-    return build_list_f_arg(fArgs,node,_l)
 
 
 ##############
@@ -959,17 +768,6 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
     return Dict(keys=keys,values=vals,ctx=Load())
 
 
-def replace_dict_build_names(fArg,node):
-
-    if is_explicit_dict_build(fArg):
-
-        return build_list_f_arg(fArg,node,_db)
-
-    return replace_dict_names(fArg,node)
-
-#replace_dict_build_names=replace_dict_names
-
-
 #################
 # EMBEDDED PYPE #
 #################
@@ -1007,28 +805,6 @@ def embedded_pype_node(fArgs,accum=ACCUM_LOAD):
     return pypeChain
 
 
-def replace_embedded_pype_names(fArgs,node):
-
-    #print('&'*30)
-    #print('replace_embedded_pype_names')
-    
-    fArgs=fArgs[1:]
-
-    #print(f'{fArgs} is fArgs')
-    #print(f'{ast.dump(node)} is node')
-
-    nodeArgs=node.args
-
-    #print(f'{nodeArgs} is nodeArgs')
-
-    replaced=[replace_with_name_node_rec(fArg,n) \
-              for (fArg,n) in zip(fArgs,nodeArgs)]
-    
-    #print(f'{_p(*replaced)} is _p(*replaced)')
-
-    return _p(*replaced)
-
-
 ######
 # DO #
 ######
@@ -1060,89 +836,60 @@ def do_node(fArgs,accum=ACCUM_LOAD):
     return callNode
 
 
-def replace_do_names(fArgs,node):
 
-    fArg=fArgs[1]
-    node=node.args[0]
-    replacedFArg=replace_with_name_node_rec(fArg,node)
+##################
+# NAME BOOKMARKS #
+##################
 
-    return _do(replacedFArg)
+class NameBookmark:
+
+    def __init__(self,name):
+
+        self.bookmarkName=name
+        
+    def __repr__(self):
+
+        return f"NameBookmark('{self.bookmarkName}')"
 
 
-#############
-# AST NAMES #
-#############
 
-def is_ast_name(node,fArg=None):
+def is_bookmark(fArg):
+    
+    #print('='*30)
+    #print('is_bookmark')
+    #print(f'{fArg} is fArg')
+    #print(f'{type(fArg)} is type fArg')
+    #print(f'id(NameBookmark) is {id(NameBookmark)}')
+    #print(f'id(fArg.__class__) is {id(fArg.__class__)}')
+    #print(f'{NameBookmark} is NameBookmark')
+    #print(f'fArg.__class__ is {fArg.__class__}')
+    #print(f'equality is {"NameBookmark" in str(fArg.__class__)}')
+    #print(f'{isinstance(fArg,NameBookmark)} is isinstance')
+    #print(f'{hasattr(fArg,"bookmarkName")} is hasattr')
 
-    isCallable=False if fArg is None else is_callable(fArg)
+    # I have no idea why this doesn't evaluate as True
+    #return isinstance(fArg,NameBookmark) 
+    # fix fix fix
 
-    return isinstance(node,Name) \
-        and node.id not in ALL_GETTER_IDS \
-        and not isCallable
+    return "NameBookmark" in str(fArg.__class__)
       
 
-def ast_name_node(node,accumNode):
+def ast_name_node(fArg,accumNode):
+    #print('='*30)
+    #print('ast_name_node')
+    #print(f'{fArg} is fArg')
 
-    return node
+    bookmarkName=fArg.bookmarkName
 
+    #print(f'{bookmarkName} is bookmarkName')
+    #print(f'{ast.dump(Name(id=bookmarkName,ctx=Load()))} is returned name')
 
-def replace_ast_name(fArg,node):
-
-    #print('replace_ast_name')
-
-    return node
-
-
-OPTIMIZE_PAIRS=[(is_callable,callable_node),
-                (is_ast_name,ast_name_node),
-                (is_mirror,mirror_node),
-                (is_index_arg,index_arg_node),
-                (is_lambda,lambda_node),
-                (is_slice,slice_node),
-                (is_index,index_node),
-                (is_map,map_dict_or_list_node),
-                #(is_map,{list:map_list_node,
-                #         dict:map_dict_node,
-                #         'default':map_dict_or_list_node}),
-                #(is_and_filter,{list:and_filter_list_node,
-                #                dict:and_filter_dict_node,
-                #                'default':and_filter_list_or_dict_node}),
-                (is_or_filter,or_filter_list_or_dict_node),
-                #(is_or_filter,{list:or_filter_list_node,
-                #                dict:or_filter_dict_node,
-                #                'default':or_filter_list_or_dict_node}),
-                (is_switch_dict,switch_dict_node),
-                (is_dict_assoc,dict_assoc_node),
-                (is_dict_dissoc,dict_dissoc_node),
-                (is_dict_merge,dict_merge_node),
-                (is_list_build,list_build_node),
-                (is_dict_build,dict_build_node),
-                (is_embedded_pype,embedded_pype_node),
-                (is_do,do_node),
-               ]
-
-REPLACE_PAIRS=[(is_lambda,replace_lambda_names),
-               (is_map,replace_map_names),
-               (is_callable,replace_callable_names),
-               #(is_and_filter,replace_and_filter_names),
-               #(is_index,replace_index_names),
-               (is_switch_dict,replace_switch_dict_names),
-               (is_dict_assoc,replace_dict_assoc_names),
-               (is_dict_dissoc,replace_dict_dissoc_names),
-               (is_dict_merge,replace_dict_merge_names),
-               (is_list_build,replace_list_build_names),
-               (is_dict_build,replace_dict_build_names),
-               (is_embedded_pype,replace_embedded_pype_names),
-               (is_do,replace_do_names),
-              ]
+    return Name(id=bookmarkName,ctx=Load())
 
 
-def assign_node_to_accum(node,accum=ACCUM_STORE):
-
-    return Assign(targets=[accum],value=node)
-
-
+############
+# LITERALS #
+############
 
 def parse_literal(fArg):
 
@@ -1191,11 +938,44 @@ def parse_literal(fArg):
     return Name(id=get_name(fArg),ctx=Load())
 
 
+########################
+# BUILDING ASSIGNMENTS #
+########################
+
+def assign_node_to_accum(node,accum=ACCUM_STORE):
+
+    return Assign(targets=[accum],value=node)
+
+
+#######################
+# OPTIMIZER FUNCTIONS #
+#######################
+
+OPTIMIZE_PAIRS=[(is_callable,callable_node),
+                (is_mirror,mirror_node),
+                (is_index_arg,index_arg_node),
+                (is_lambda,lambda_node),
+                (is_slice,slice_node),
+                (is_index,index_node),
+                (is_map,map_dict_or_list_node),
+                (is_bookmark,ast_name_node),
+                (is_or_filter,or_filter_list_or_dict_node),
+                (is_switch_dict,switch_dict_node),
+                (is_dict_assoc,dict_assoc_node),
+                (is_dict_dissoc,dict_dissoc_node),
+                (is_dict_merge,dict_merge_node),
+                (is_list_build,list_build_node),
+                (is_dict_build,dict_build_node),
+                (is_embedded_pype,embedded_pype_node),
+                (is_do,do_node),
+               ]
+
+
 def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
     #print('>'*30)
     #print('optimize_rec')
-    #print(fArg)
+    #print(f'{fArg} is fArg')
 
     fArg=delam(fArg)
     optimizers=[opt_f for (evl_f,opt_f) in OPTIMIZE_PAIRS if evl_f(fArg)]
@@ -1236,13 +1016,13 @@ def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
 
 
-def optimize_f_args(fArgs,fArgTypes,startNode):
+def optimize_f_args(fArgs,startNode):
 
     assignList=[assign_node_to_accum(startNode)]
 
-    for fArg,fArgType in zip(fArgs,fArgTypes):
+    for fArg in fArgs:
 
-        opt=optimize_rec(fArg,ACCUM_LOAD)#,fArgType)
+        opt=optimize_rec(fArg,ACCUM_LOAD)
         
         if is_list(opt):
 
@@ -1262,12 +1042,9 @@ def optimize_f_args(fArgs,fArgTypes,startNode):
     return assignList
 
 
-def is_pype_return(body,aliases):
-
-    return isinstance(body[-1],Return) \
-        and isinstance(body[-1].value,Call)\
-        and body[-1].value.func.id in aliases
-
+################
+# PYPE ALIASES #
+################
 
 def aliases_for_pype(glbls):
     '''
@@ -1284,58 +1061,152 @@ def aliases_for_pype(glbls):
                 and is_callable(f)])
 
 
-def pype_with_f_arg_and_tree(accum,*fArgs):
+#######################
+# AST TRANSFORMATIONS #
+#######################
 
-    #print('='*30)
-    #print('pype_with_f_arg_and_tree')
-    #successiveFArgs=[list(fArgs[:i+1]) for i in range(len(fArgs))]
-    successiveEvals=[]
-    
-    for fArg in fArgs:
+class NameReplacer(NodeTransformer):
+    '''
+    This finds any name and converts it into a NameBookmark object, so when the fArgs
+    are returned by pype_return_fargs, they contain NameBookmark objects.
+    '''
+    def __init__(self,nameSpace=set([])):
 
-        accum=pype_f(accum,fArg)
+        self.nameSpace=set([el for el in nameSpace])
 
-        #print('accum is')
-        #pp.pprint(accum)
+    def visit_Name(self,node):
 
-        successiveEvals.append(deepcopy(accum))
+        self.generic_visit(node)
 
-    #successiveEvals=[pype_f(accum,*successive) for successive in successiveFArgs]
-    fArgTypes=[type(evl) for evl in successiveEvals]
+        newNode=node
 
-    #print('successiveEvals')
-    #pp.pprint(successiveEvals)
-    #print(f'{fArgTypes} is fArgTypes')
+        if node.id in self.nameSpace:
 
-    return successiveEvals[-1],list(fArgs),fArgTypes
+            #print(f'visiting node {ast.dump(node)}')
+            #print(f'{str(self.nameSpace)[:20]} is namespace')
+
+            name=node.id
+            newNode=Call(func=Attribute(value=Name(id='optimize',ctx=Load()),
+                                        attr='NameBookmark',
+                                        ctx=Load()),
+                         args=[Str(s=name)], 
+                         keywords=[])
+            
+            #newNode=fix_missing_locations(newNode)
+            #node=fix_missing_locations(node)
+
+            #print(f'node is now {ast.dump(newNode)}')
+
+        return newNode
 
 
-IMPORT_PYPE=ImportFrom(module='pype.optimize', 
-                       names=[alias(name='pype_with_f_arg_and_tree', 
-                                    asname=None)])
 
-class PypeCallReplacer(NodeVisitor):
+def is_pype_return(node,aliases):
 
+    if is_list(node):
+
+        node=node[-1]
+
+    return isinstance(node,Return) \
+        and isinstance(node.value,Call)\
+        and node.value.func.id in aliases
+
+
+def pype_return_f_args(accum,*fArgs):
+    '''
+    FArgs is a tuple, but we want it to be a list - it's just neater.
+    '''
+    return list(fArgs)
+
+
+IMPORT_OPTIMIZE=ImportFrom(module='pype', 
+                           names=[alias(name='optimize', asname=None)], 
+                           level=0)
+PYPE_RETURN_F_ARGS=Attribute(value=Name(id='optimize',ctx=Load()),
+                             attr='pype_return_f_args',
+                             ctx=Load())
+
+class CallNameReplacer(NodeVisitor):
+    '''
+    This class does two things - first, it changes the returned pype call to 
+    pype_return_f_args, a function that returns only the fArgs.  As well, it 
+    changes any variable in the local namespace into a NameBookmark object, so it is 
+    not evaluated by the interpreter as a specific value.  This NameBookmark object
+    is later converted into a Name object.
+
+    I chose the NameBookmark strategy because the simultaneous iteration-mapping
+    of fArg elements with nodes on the tree doesn't support pype macros such as 
+    _if.  So you'd have to right a simultaneous traversal for each macro.  Instead
+    I evaluate the macros with pype_return_f_args, and then parse the fArgs directly
+    without any reference to the original tree.
+
+    To illustrate this, let's say we have a macro which is:
+
+    def _if(condition,result):
+
+      return {condition:result,
+              'else':_}
+
+    In the call:
+
+    y=2
+
+    return p(x,_if(_ > 2,_+y))
+
+    Under the old pair-traversal strategy, I'd get a parse of the _if statement, 
+    and I would need to write both a fArg-to-tree conversion and a replace-name 
+    conversion for this particular case.  This is messy and leads to a lot of
+    code bloat.
+
+    So here, we replace the call with a function that returns:
+
+    [{_ > 2: _ + NameBookmark('y'),
+      'else':_}]
+
+    When the fArg parser finds a NameBookmark object, it replaces it with a Name
+    object.  
+    '''
     def __init__(self,aliases):
 
         self.pypeAliases=aliases
+        self.nameSpace=set()
         self.accumNode=None
-        self.fArgsNode=None
 
     def visit_FunctionDef(self,node):
 
-        args=node.args.args
-        body=node.body
+        '''
+        We are at the function definition.  First, we update the namesSpace
+        with all local variables.  This means that using global constants isn't
+        permitted in the optimizer - you have to explicitly put them in the 
+        function scope.
+        '''
+        bodyNames=[target.id for line in node.body if isinstance(line,Assign) \
+                     for target in line.targets]
+        argNames=[arg.arg for arg in node.args.args]
+        self.nameSpace|=set(bodyNames+argNames)
 
-        #print(f'{self.pypeAliases} is pype aliases')
+        '''
+        Is there a pype return at the end of the function definition?
 
-        if is_pype_return(body,self.pypeAliases):
-
-            node.body[-1].value.func.id='pype_with_f_arg_and_tree'
-            #print('replacing pype call')
-            node.body=[IMPORT_PYPE]+node.body
-            self.accumNode=body[-1].value.args[0]
-            self.fArgsNodes=body[-1].value.args[1:]
+        TODO - do this for all pype calls inside a function, which means the 
+        accum-assign strategy needs to be replaced.
+        '''
+        if is_pype_return(node.body,self.pypeAliases):
+            # Set the accum node
+            self.accumNode=node.body[-1].value.args[0]
+            # Insert an import of pype.optimize into the node body.
+            node.body=[IMPORT_OPTIMIZE]+node.body
+            # Change the function call from pype to pype_return_f_args, which only
+            # returns the fArgs.
+            node.body[-1].value.func=PYPE_RETURN_F_ARGS
+            # Now, we look for any Name instance in the FArg and replace it with
+            # a NameBookMark. Feed resulting nodes into newFArgsNodes.
+            fArgsNodes=node.body[-1].value.args[1:]
+            newFArgsNodes=[NameReplacer(self.nameSpace).visit(fArgNode) \
+                           for fArgNode in fArgsNodes]
+            # The new fArgsNodes have NameBookmark anywhere there is a local variable
+            # referenced.  So we replace the fArgs in the function body with this.
+            node.body[-1].value.args[1:]=newFArgsNodes
 
         node.decorator_list=[]
         node=fix_missing_locations(node)
@@ -1343,8 +1214,13 @@ class PypeCallReplacer(NodeVisitor):
         self.generic_visit(node)
 
 
-class PypeTreeReplacer(NodeVisitor):
+class FArgReplacer(NodeVisitor):
+    '''
+    This takes a series of sub-trees in fArgAssigns and the original parse tree.
+    It then applies these assignments to the function return.
 
+    TODO - get rid of the accum assigns.
+    '''
     def __init__(self,fArgAssigns,aliases):
 
         self.fArgAssigns=fArgAssigns
@@ -1353,180 +1229,17 @@ class PypeTreeReplacer(NodeVisitor):
     
     def visit_FunctionDef(self,node):
 
-        body=node.body
+        if is_pype_return(node.body,self.pypeAliases):
         
-        if is_pype_return(body,self.pypeAliases):
-        
-            node.body=body[:-1]+self.fArgAssigns+RETURN_ACCUM
+            # Whereas originally node.body[-1] just contains the return,
+            # now we replace it with the funciton body up to the return,
+            # plus the accum assigns, plus the return accum.
+            node.body=node.body[:-1]+self.fArgAssigns+RETURN_ACCUM
 
         node.decorator_list=[]
         node=fix_missing_locations(node)
 
         self.generic_visit(node)
-
-
-
-'''
-class FArgCallReplacer(NodeVisitor):
-
-    def __init__(self,glbls):
-
-        self.glbls=glbls
-
-
-    def visit_FunctionDef(self,node):
-
-        body=node.body
-        
-        if isinstance(body[-1],Return):
-
-            fArgNodes=body[-1].value.args[1:]
-            newNodes=[]
-
-            for fArgNode in fArgNodes:
-
-                if isinstance(fArgNode,Call):
-
-                    print(f'{ast.dump(fArgNode)} is fArgNode')
-                    exp=Expression(body=fArgNode)
-                    evalExp=eval(compile(exp,
-                                         filename='<ast>',
-                                         mode='eval'),
-                                 self.glbls)
-                    
-                    if is_list(evalExp) \
-                       and len(evalExp) >= 1 \
-                       and is_string(evalExp[0]) \
-                       and evalExp[0] in LIST_ARGS:
-
-                        pass
-
-                    #newNodes.append(newFArgNode)
-
-                    print(f'{evalExp} is evalExp')
-
-        node.decorator_list=[]
-        node=fix_missing_locations(node)
-
-        self.generic_visit(node)
-'''
-
-'''
-def align_node_with_fargs(fArgs,node):
-
-    if not (isinstance(node,Call) or isinstance(node,List)):
-
-        return node
-
-    ls=get_nodes_for_list_f_arg(node)
-    
-    for (i,fArg) in enumerate(fArgs):
-
-        if is_list(fArg) \
-           and len(fArg) >= 1 \
-           and is_string(fArg[0]) \
-           and fArg[0] in LIST_ARGS:
-
-           subNodes=ls[i:len(fArg)]
-'''           
-
-
-def replace_literal_container_names(fArgs,node):
-
-    if isinstance(node,Dict):
-
-        keyNodes=node.keys
-        valNodes=node.values
-        replacedKeys=[replace_with_name_node_rec(fArgKey,keyNode) \
-                      for (fArgKey,keyNode) in zip(fArgs.keys(),keyNodes)]
-        replacedValues=[replace_with_name_node_rec(fArgVal,valNode) \
-                        for (fArgVal,valNode) in zip(fArgs.values(),valNodes)]
-        
-        return {k:v for (k,v) in zip(replacedKeys,replacedValues)}
-
-    if isinstance(node,List):
-
-        elts=node.elts
-
-        return [replace_with_name_node_rec(fArg,node) \
-                for (fArg,node) in zip(fArgs,elts)]
-
-    if isinstance(node,Set):
-        
-        elts=node.elts
-
-        return {replace_with_name_node_rec(fArg,node) \
-                for (fArg,node) in zip(fArgs,elts)}
-
-    if isinstance(node,Tuple):
-
-        elts=node.elts
-
-        return tuple([replace_with_name_node_rec(fArg,node) \
-                      for (fArg,node) in zip(fArgs,elts)])
-
-    return fArgs
-
-
-def replace_with_name_node_rec(fArg,node):
-    '''
-    When we call pype_with_f_arg_and_tree, there is a problem - in the fArg,
-    variables in the scope of the function are actually their literals.  So
-    for example, if we had an fArg _+x, and x=1 on the first evaluation, we
-    get _+1.  The function is then parsed accordingly.
-
-    What we want to do is take the first fArg of the function, and replace
-    any literal with a Name node.  This will encourage the recompiler to include
-    the variable name instead of the first evaluated literal.
-    '''
-    #print('='*30)
-    #print('replace_with_name_node')
-
-    #print('node is')
-    #print(node)
-
-    #print('fArg is')
-    #print(fArg)
-
-    isLamTup=is_lam_tup(fArg)
-    isFArg=is_f_arg(fArg)
-
-    if is_ast_name(node) \
-       and not isFArg \
-       and not isLamTup \
-       and not isinstance(fArg,PypeVal):
-
-        return node
-
-    fArg=delam(fArg)
-
-    # Here, we ensure that we get names in dict, tuple, list, and set literals.
-
-    if not isFArg:
-        
-        fArg=replace_literal_container_names(fArg,node)
-
-    #pp.pprint(f'fArg is {fArg}')
-    #astpretty.pprint(node)
-    evls=[f(fArg,node) for (evl_f,f) in REPLACE_PAIRS if evl_f(fArg)]
-    fArg=evls[-1] if evls else fArg
-    #print('replaced:')
-    #if is_dict(fArg) and 2 in fArg:
-    #    print(f'{ast.dump(fArg[2])}')
-    #pp.pprint(fArg)
-    #print('='*30)
-
-    if isLamTup:
-
-        fArg=LamTup(fArg)
-
-    return fArg
-
-
-def replace_with_name_node(fArgs,nodes):
-
-    return [replace_with_name_node_rec(fArg,node) \
-            for (fArg,node) in zip(fArgs,nodes)]
 
 
 def add_main_modules(mod,glbls):
@@ -1553,39 +1266,47 @@ def add_main_modules(mod,glbls):
     return glbls
 
 
+'''
+Stores all optimized functions.
+'''
 FUNCTION_CACHE={}
 
 #import astpretty
 #import pprint as pp
 
-def optimize(pype_func,verbose=False):
+def optimize(pype_func,verbose=True):
 
     originalFuncName=pype_func.__name__
-    glbls=pype_func.__globals__
-    aliases=aliases_for_pype(glbls)
     src=getsource(pype_func)
+    '''
+    Build a namespace containing all the globals of the function, and the
+    namespaces of all the modules referenced.  It's really just spaghetti thrown
+    against the wall.
+    '''
+    glbls=pype_func.__globals__
     moduleName=pype_func.__module__
     mod=__import__(moduleName)
-    #print(f'{mod} is moduleName')
     glbls[moduleName]=mod
     glbls=add_main_modules(mod,glbls)
+    '''
+    Grab aliases for pype.
+    '''
+    aliases=aliases_for_pype(glbls)
 
     @wraps(pype_func)
     def optimized(*args):
-
+        '''
+        If we've already compiled this function, then just grab it from the 
+        function cache and evaluate it.
+        '''
         if originalFuncName in FUNCTION_CACHE:
 
             return FUNCTION_CACHE[originalFuncName](*args)
 
         '''
-        First pass, replace pype call with pype_with_f_arg_and_tree, so we
-        can get the fArgs without having to explicitly parse them from the 
-        tree.
+        First, we get a tree from the source code.
         '''
         tree=parse(src)
-        callReplacer=PypeCallReplacer(aliases)
-        recompiledReplacerNamespace={}
-        #fArgReplacer=FArgCallReplacer(glbls)
 
         if verbose:
 
@@ -1594,14 +1315,25 @@ def optimize(pype_func,verbose=False):
             astpretty.pprint(tree)
             print('*'*30)
 
-        callReplacer.visit(tree)
-        #print('after callReplacer.visit')
-        #print(f'{ast.dump(tree)}')
+        '''
+        Now, we want to replace any name, either in the global variables or the
+        function body, that appears in the function body with NameBookmark.
+        '''
+        callNameReplacer=CallNameReplacer(aliases)
 
-        #fArgReplacer.visit(tree)
-        #print('*'*30)
-        #pp.pprint(optimize.__globals__)
-        #print('*'*30)
+        callNameReplacer.visit(tree)
+
+        if verbose:
+
+            print('*'*30)
+            print('after callNameReplacer tree is')
+            astpretty.pprint(tree)
+
+        '''
+        Now, we recompile the function into the recompiledReplacedNamespace, and
+        extract the fArgs.
+        '''
+        recompiledReplacerNamespace={}
 
         exec(compile(tree,
                      filename='<ast>',
@@ -1610,36 +1342,33 @@ def optimize(pype_func,verbose=False):
              recompiledReplacerNamespace)
 
         recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
-        v,fArgs,fArgTypes=recompiled_pype_func(*args)
+        fArgs=recompiled_pype_func(*args)
+
+        if verbose:
+
+            print('*'*30)
+            print('printing fArgs')
+            pp.pprint(fArgs)
 
         '''
-        Second pass, we find anywhere where the pype expression has a reference
-        to a variable in the scope of the function, and replace it with a Name.
-        Otherwise, it gets evaluated as a literal.
+        Now, we run the optimizations and convert the fArgs into a list of trees.
         '''
-        if callReplacer.fArgsNodes is not None:
+        fArgTrees=optimize_f_args(fArgs,callNameReplacer.accumNode)
 
-            #print('fArgs is')
-            #pp.pprint(fArgs)
-            #print('callReplacer.fArgsNodes is ')
-            #print(callReplacer.fArgsNodes)
+        if verbose:
 
-            fArgs=replace_with_name_node(fArgs,
-                                         callReplacer.fArgsNodes)
-            
-            #print('fArgs With Replaced Name')
-            #pp.pprint(fArgs)
-        '''
-        Third pass, we parse the original source and convert the original 
-        returned pype call into fArg calls.
-        '''
-        replaceTree=optimize_f_args(fArgs,fArgTypes,callReplacer.accumNode)
-        #print(f'{replaceTree} is replaceTree')
+            print('*'*30)
+            print('printing replacedTree')
+
+            for fArgTree in fArgTrees:
+
+                print(ast.dump(fArgTree))
+
         recompiledReplacerNamespace={}
         tree=parse(src)
-        treeReplacer=PypeTreeReplacer(replaceTree,aliases)
+        fArgReplacer=FArgReplacer(fArgTrees,aliases)
 
-        treeReplacer.visit(tree)
+        fArgReplacer.visit(tree)
 
         if verbose:
             
@@ -1649,13 +1378,14 @@ def optimize(pype_func,verbose=False):
             print('*'*30)
             #pp.pprint(astunparse.dump(tree))
 
+
         exec(compile(tree,
                      filename='<ast>',
                      mode='exec'),
              glbls,
              recompiledReplacerNamespace)
 
-        #pp.pprint(recompiledReplacerNamespace)
+        return None
 
         recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
         '''
@@ -1700,96 +1430,18 @@ def time_func(func):
     return timed
 
 
-def concat(ls):
-
-    return ls+[0]
-
-def sm(x,y): return x+y
-
-'''
-'''
-
-import numpy as np
-from pype.helpers import *
-import pype.helpers
-from pype.vals import lenf
-
 @optimize
-def calc16(dctLS):
+def test_f(ls):
 
-    return p( dctLS,
-              [_a(3,1,5,6)],
-            )
-
-
-@optimize
-def calc15(ls):
+    x=2
 
     return p( ls,
-              [[_+1]],
-            )
-
-from pype import _assoc_p as _ap
-
-@optimize
-def calc17(n):
-
-    return p( n,
-              #{'x':_+1,
-              # 'y':_*3},
-              _db('x',_+1,'y',_*3),
-              _a('z',_p(_['x']+_['y'],_*5)),
-            )
-
-
-from pype import _merge as _m
-
-def change_list(ls):
-
-    ls.append(1000)
-
-
-@optimize
-def calc18(ls):
-
-    x=5
-
-    return p( ls,
-              _do(change_list),
-              #_m({2:x}),
-              #_d(2,3,12)),
-              #{_>2},
+              _[x],
+              #np.array,
              )
+
 
 if __name__=='__main__':
 
-    #pass
-    #print(calc([1]))
-    #print(calc([2]))
-    #print(calc3([2,4]))
-    #print(calc3([2,4]))
-    #print(calc6([[1,2],3,4]))
-    #print(calc7([1,2,4,5]))
-    #print(calc8([1,2,4,5]))
-    #print(calc8([1,2,4,5]))
-    #print(calc9([1,2,4,5]))
-    #print(calc9([1,2,4,5]))
-    #print(caloc10({1:2,4:5}))
-    #print(calc10({1:2,4:5}))
-    #print(calc11({1:2,4:5}))
-    #print(calc11({1:2,4:5}))
-    #print(calc12([1,2,3,4,5,6]))
-    #print(calc12([1,2,3,4,5,6])) 
-    #print(calc13([[1,2],[3,4],[5,6]])) 
-    #print(calc13([[1,2],[3,4],[5,6]])) 
-    #print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
-    #print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
-    #print(calc15([[1,2,3],[4,5,6]]))
-    #print(calc15([[1,2,3],[4,5,6]]))
-    #print(calc16([{1:2,3:4}]))
-    #print(calc16([{1:2,3:4}]))
-    #print(calc17(3))
-    #print(calc17(3))
-    print(calc18([1,2,3,4]))
-    print(calc18([1,2,3,4]))
-    #print(calc18([5,8,1,2,3]))
+    print(test_f([1,2,3]))
+    #print(test_f([1,2]))
