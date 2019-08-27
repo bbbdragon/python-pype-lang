@@ -299,6 +299,11 @@ def zip_ls(ls):
     return list(zip(ls,ls[1:]))
 
 
+def zip_ls(ls1,ls2):
+
+    return list(zip(ls1,ls2))
+
+
 def sort_by_key(ls,key,rev=False):
 
     return sorted(ls,key=lambda js: js[key], reverse=rev)
@@ -328,6 +333,13 @@ def key_ls_append(js,key,el):
     return js
 
 
+def ls_extend(ls1,ls2):
+
+    ls1.extend(ls2)
+
+    return ls1
+
+
 def add_key_as(dct,key):
 
     for (k,d) in dct.items():
@@ -342,10 +354,14 @@ def zip_to_dct(tups,keys):
     return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
 
 
-def dict_from_tups(tups,*keys):
+def dct_from_tup(tup,*keys):
 
-    return [dict(zip(keys,tup)) for tup in tups]
+    return dict(zip(keys,tup))
 
+
+def dct_from_tups(tups,*keys):
+
+    return [dct_from_tup(tup,*keys) for tup in tups]
 
     
 def middle(ls):
@@ -463,3 +479,34 @@ def reverse_dct_vals(dct):
             newD[k2][k1]=v
 
     return dict(newD)
+
+
+def prod_by_one(el,ls):
+
+    return list(product([el],ls))
+
+
+def one_val_dct(keys,val):
+
+    return {k:val for k in keys}
+
+
+def prod_ls_dct(keys,vals):
+
+    return tup_ls_dct(itertools.product(keys,vals))
+
+
+def all_t(collection):
+
+    if isinstance(collection,dict):
+
+        vals=collection.values()
+
+    return all([bool(v) for v in vals])
+
+
+def select(dct,*keys):
+
+    return {k:dct[k] for k in keys}
+
+
