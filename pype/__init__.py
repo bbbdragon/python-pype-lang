@@ -63,6 +63,7 @@ MIRROR=Getter('_pype_mirror_')
 _=MIRROR
 __=MIRROR
 MIRROR_SET=set([MIRROR])
+#_0,_1,_2,_3=[(_,[i]) for i in range(4)]
 _0=Getter('_arg0_')
 _1=Getter('_arg1_')
 _2=Getter('_arg2_')
@@ -418,13 +419,26 @@ def has_mirror(fArg):
 
     return False
 
+
+def has_index_arg(fArg):
+
+    if is_index_arg(fArg):
+
+        return True
+
+    if (is_list(fArg) or is_tuple(fArg)) and len(fArg) >= 1:
+        
+        return has_index_arg(fArg[0])
+
+    return False
+
     
 def is_index(fArg):
 
     return is_tuple(fArg) \
         and len(fArg) == 2 \
         and is_getitem(fArg[1]) \
-        and has_mirror(fArg[0])
+        and (has_mirror(fArg[0]) or has_index_arg(fArg[0]))
         #and (fArg[0] == _ or is_f_arg(fArg[0])) 
 
 
