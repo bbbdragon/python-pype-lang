@@ -7,6 +7,10 @@ pype way, and the numpy aggregation way.
 THe point of this excercise is to demonstrate the expressive power of pype.
 It can also serve as practical advice if you want to get a performance boost by 
 bringing numpy into the picture.
+
+Before using, ensure that json_requirements.txt is installed by typing, under sudo:
+
+pip3 install -r json_requirements.txt
 '''
 from pype import pype as p
 from pype import _,_0,_1,_p
@@ -17,7 +21,6 @@ import json
 import pprint as pp
 import sys
 from copy import deepcopy
-from statistics import mean,stdev
 from pype.vals import lenf
 from pype.vals import PypeVal as v
 from pype.time_helpers import *
