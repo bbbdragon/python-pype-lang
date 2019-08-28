@@ -250,7 +250,8 @@ Other examples demonstrate how to implement recursion in pype, and how to build 
 * recursive quicksort - `examples/quicksort.py`
 * recursive Fibonacci - `examples/fibonacci.py`
 * purely functional implementation of the CYK parsing algorithm - `examples/cyk.py`
-* JSON aggregation - `examples/json_examples/aggregations.py` This script will familiarize you with useful JSON manipulations that Pype excels at.
+* JSON aggregation - `examples/json_examples/aggregations.py` This script will familiarize you with useful JSON manipulations that Pype excels at. `examples/json_examples/numpy_aggregate.py` demonstrates how to use the numpy_helpers
+library to get a performance boost by doing aggregation and computation with numpy.
 * statistics service - `examples/services/stats_service.py` This script runs a Flask service that computes the sum, mean, and standard deviation of a group of numbers.  First, you must install `examples/services/service_requirements.txt`.  After the server is run, it can be tested with `examples/services/test_stats_service.sh`.  
 * classifier service - `examples/services/classifier_service.py` This script runs a Flask service that runs a Random Forest classifier.  It is useful if you want to deploy lightweight machine learning microservices.  First, you must install `examples/services/service_requirements.txt`.  After the server is run, it can be tested with `examples/services/test_classifier_service.sh`. 
 To run any of these files from a command line, just type in the quoted command at the beginning of the file.  For example, `quicksort.py` can be run by typing:
