@@ -1,13 +1,14 @@
 '''
 python3 quicksort.py
 '''
+from pype import _if
 from pype import pype as p
 from pype import _
 from pype import _concat as _c
 from pype.helpers import middle
 from pype.vals import lenf,l
 
-def quicksort1(ls):
+def qs1(ls):
     '''
     Here is a verbose implementation of recursive quicksort.  Here's the blow-by-blow:
     
@@ -19,15 +20,15 @@ def quicksort1(ls):
 
     This is a switch dict which returns the ls if it is empty.
 
-    'else':_c((quicksort1,{_ < pivot}),
+    'else':_c((qs1,{_ < pivot}),
               [pivot],
-              (quicksort1,{_ > pivot}))},
+              (qs1,{_ > pivot}))},
 
     otherwise it calls quicksort recursively on everything below and above the pivot, 
     and concatenates the results with the pivot in the middle.  _c is the list 
     concatenation operator.
 
-    (quicksort1,{_ < pivot})
+    (qs1,{_ < pivot})
 
     {_ < pivot} is a filter for ls, taking everything below the pivot, and recursively
     calling quicksort on this sub-list.
@@ -41,12 +42,12 @@ def quicksort1(ls):
 
     return p( ls,
               {lenf == 0:_,
-               'else':_c((quicksort1,{_ < pivot}),
+               'else':_c((qs1,{_ < pivot}),
                          [pivot],
-                         (quicksort1,{_ > pivot}))},
+                         (qs1,{_ > pivot}))},
             )
 
-def quicksort2(ls):
+def qs2(ls):
     '''
     This is a super-concise implementation of quicksort, but has the exact same
     functionality as quicksort1.  Two differences:
@@ -63,13 +64,13 @@ def quicksort2(ls):
 
     ... otherwise we return the empty list.
 
-    l(quicksort2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
+    l(qs2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
 
     We have a list concatenation, but it is implemented in a slightly different way.
 
     First, we cannot do:
 
-    (quicksort2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
+    (qs2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
 
     This is because the resulting expression would not compile, since Python does not
     allow tuples to be added to lists.  We need to "trick" the Python interpreter into
@@ -79,17 +80,17 @@ def quicksort2(ls):
 
     l is a shorthand for declaring a PypeVal for a lambda expression:
 
-    l(quicksort2,{_ < pivot}) <=> PypeVal((quicksort2,{_ < pivot})) 
+    l(qs2,{_ < pivot}) <=> PypeVal((qs2,{_ < pivot})) 
 
     Because this is a PypeVal, it overrides the + operator, which can be used to 
     concatenate lists.  So, if we wanted a printout of the PypeVal expression:
 
-    l(quicksort2,{_ < pivot}) + [pivot]
+    l(qs2,{_ < pivot}) + [pivot]
 
     it would be, assuming pivot = 5: 
 
     L(<built-in function add>, 
-      (<function quicksort2 at 0x7fdd3eb30f28>, 
+      (<function qs2 at 0x7fdd3eb30f28>, 
         {L(<built-in function lt>, G('_pype_mirror_',), 5)}), 
         [5])
 
@@ -100,29 +101,52 @@ def quicksort2(ls):
 
     L(<built-in function add>, 
       (<built-in function add>, 
-        (<function quicksort2 at 0x7fdd3eb30ea0>, 
+        (<function qs2 at 0x7fdd3eb30ea0>, 
           {L(<built-in function lt>, G('_pype_mirror_',), 5)}), 
           [5]), 
-       (<function quicksort2 at 0x7fdd3eb30ea0>, 
+       (<function qs2 at 0x7fdd3eb30ea0>, 
          {L(<built-in function gt>, G('_pype_mirror_',), 5)}))
 
-    Concatenate two lists: the first is the result of calling quicksort2 on every 
+    Concatenate two lists: the first is the result of calling qs2 on every 
     element under 5 and concatenating it to [5], and the second is the result of
     calling quicksort on every element above 5.
     '''
     pivot=middle(ls)
 
     return p( ls,
-              {len:l(quicksort2,{_ < pivot}) + [pivot] + (quicksort2,{_ > pivot}),
+              {len:l(qs2,{_ < pivot}) + [pivot] + (qs2,{_ > pivot}),
                'else':_},
             )
 
+
+def qs3(ls):
+    '''
+    Here we show how to use the pype macro _if, which returns a switch dict.  So if
+    we had a switch dict:
+
+    {len:1+_,
+     'else':_}
+
+    we could restate this as:
+
+    _if(len,_+1)
+
+    Pype macros return evaluable pype expressions when evaluated, but keep the code
+    more concise.  
+    '''
+    pivot=middle(ls)
+
+    return p( ls,
+              _if(len,l(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+            )
 
 if __name__=='__main__':
             
     ls=[86,23,1,4,-1,2,5]
 
     print(f'Before the sort, the list is {ls}')
-    print(f'The sorted list is for verbose recursive quicksort is {quicksort1(ls)}') 
-    print(f'The sorted list is for concise recursive quicksort is {quicksort2(ls)}') 
+    print(f'The sorted list is for verbose recursive quicksort is {qs1(ls)}') 
+    print(f'The sorted list is for concise recursive quicksort is {qs2(ls)}') 
+    print('The sorted list is for concise recursive quicksort with macros '
+          f'is {qs3(ls)}') 
 
