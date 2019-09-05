@@ -36,6 +36,7 @@ DATE_RANGE=date_range(BEGIN,END)
 DATE_TO_INT_CACHE={}
 INT_TO_DATE_CACHE={}
 DATE_TO_STRING_CACHE={}
+DATE_TO_WEEKDAY_CACHE={}
 
 for date in DATE_RANGE:
 
@@ -43,6 +44,7 @@ for date in DATE_RANGE:
     dateInt=date_int(date)
 
     DATE_TO_INT_CACHE[dateString]=dateInt
+    DATE_TO_WEEKDAY_CACHE[dateString]=date.weekday()
     INT_TO_DATE_CACHE[dateInt]=dateString
     DATE_TO_STRING_CACHE[date]=dateString
 
@@ -65,6 +67,12 @@ def date_to_date_string(dateString):
 def int_to_date_string(dateInt):
 
     return from_cache(dateInt,INT_TO_DATE_CACHE)
+
+
+def date_string_to_weekday_int(dateString):
+
+    return from_cache(dateString,DATE_TO_WEEKDAY_CACHE)
+
 
 
 MONTH_TO_INT_CACHE={}
@@ -98,3 +106,8 @@ def date_string_to_month_string(dateString):
     return from_cache(dateString,DATE_STRING_TO_MONTH_STRING_CACHE)
 
 
+WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+
+def weekday_int_to_string(i):
+
+    return WEEKDAYS[i]
