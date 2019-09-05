@@ -5,6 +5,40 @@ from copy import deepcopy
 from operator import itemgetter
 import pprint as pp
 
+#################
+# TYPE CHECKING #
+#################
+
+is_tuple=lambda x: isinstance(x,tuple)
+is_dict=lambda x: isinstance(x,dict)
+is_list=lambda x: isinstance(x,list)
+is_mapping=lambda x: isinstance(x,dict)
+is_bool=lambda x: isinstance(x,bool)
+is_object=lambda x: isinstance(x,object)
+is_string=lambda x: isinstance(x,str)
+is_set=lambda x: isinstance(x,set)
+is_int=lambda x: isinstance(x,int)
+is_slice=lambda x: isinstance(x,slice)
+is_getter=lambda x: isinstance(x,Getter)
+is_pype_val=lambda x: isinstance(x,PypeVal)
+is_getter=lambda x: isinstance(x,Getter)
+is_lam_tup=lambda x: isinstance(x,LamTup) and not is_pype_val(x) and not is_getter(x)
+is_iterable=lambda x: isinstance(x,Iterable)
+is_mapping=lambda x: isinstance(x,Mapping)
+is_hashable=lambda x: isinstance(x,Hashable)
+is_ndarray=lambda x: isinstance(x,np.ndarray)
+is_sequence=lambda x: isinstance(x,Sequence) or is_ndarray(x)
+is_container=lambda x: isinstance(x,Container)
+
+key=lambda x: tup[0]
+val=lambda x: tup[1]
+slc=lambda ls,start,stop: ls[start:stop]
+
+def is_callable(fArg):
+
+    return callable(fArg)
+
+
 def pair_dd(f=lambda:int()):
 
     return defaultdict(lambda:defaultdict(f))
@@ -377,33 +411,16 @@ def range_list(n,m):
 
     return list(range(n,m))
 
-def range_list(n,m):
 
-    return list(range(n,m))
+def list_range(ls):
+
+    return range(len(ls))
 
 
 def zip_to_dicts(tups,*keys):
 
     return [dict(zip(keys,tup)) for tup in tups]
 
-
-def get_or_false(dct,*keys):
-
-    if not dct:
-
-        return False
-
-    d=dct
-
-    for key in keys:
-
-        if key not in d:
-
-            return False
-
-        d=d[key]
-
-    return d
 
 
 def get_by_key_or_false(dct,dctKey,*keys):
@@ -509,4 +526,106 @@ def select(dct,*keys):
 
     return {k:dct[k] for k in keys}
 
+
+
+def rng(ln):
+
+    return range(ln)
+
+
+def get_or_false(obj,*keys):
+
+    if keys:
+
+        if is_list(obj):
+
+            if keys[0] >= len(obj):
+                
+                return False
+
+            obj=obj[keys[0]]
+        
+            return get_or_false(obj,keys[1:])
+
+        if is_dict(obj):
+
+            if keys[0] not in obj:
+
+                return False
+
+            obj=obj[keys[0]]
+        
+            return get_or_false(obj,keys[1:])
+
+        if is_string(keys[0]) and hasattr(obj,keys[0]):
+
+            attr=getattr(obj,keys[0])
+
+            return get_or_false(attr,keys[1:])
+
+    return obj
+
+
+def get_call_or_false(obj,*keys):
+
+    #print('='*30)
+    #print('get_call_or_false')
+    #print(f'{obj} is obj')
+    #print(f'{keys} is keys')
+
+    if keys:
+
+        if is_list(obj) or is_tuple(obj):
+
+            if keys[0] >= len(obj):
+                
+                return False
+
+            obj=obj[keys[0]]
+
+        if is_dict(obj):
+
+            if keys[0] not in obj:
+
+                return False
+
+            obj=obj[keys[0]]
+        
+        if is_string(keys[0]) and hasattr(obj,keys[0]):
+
+            obj=getattr(obj,keys[0])
+
+        if len(keys) == 1:
+
+            return obj
+
+        return get_call_or_false(obj,keys[1:])
+
+    if is_callable(obj):
+
+        if not keys or not keys[0]:
+
+            return obj()
+
+        firstKey=keys[0]
+        obj=obj(firstKey)
+
+        return get_call_or_false(obj,keys[1:])
+    
+    return obj
+
+
+def reduce_func(func,iterable):
+
+    return reduce(lambda h,x: func(h,x),iterable)
+
+
+def reduce_func_start_val(func,startVal,iterable):
+
+    return reduce(lambda h,x: func(h,x),iterable,startVal)
+
+
+def str_join(st,ls):
+
+    return st.join(ls)
 

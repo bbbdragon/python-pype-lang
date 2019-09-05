@@ -80,7 +80,7 @@ class LamTup(object):
 
     def __getattr__(self,val):
 
-        return LamTup(self.val(),val)
+        return LamTup(self.val(),[val])
 
 
     def __hash__(self):
@@ -244,7 +244,7 @@ class PypeVal(LamTup):
     def __str__(self):
 
         return 'PV'+str(self._tup_)
-
+    
 
 class Getter(PypeVal):
     '''
@@ -340,5 +340,4 @@ quote=lambda v: Quote(v)
 def not_empty(v):
 
     return len(v) != 0
-
 

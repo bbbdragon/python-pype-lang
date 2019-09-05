@@ -11,8 +11,13 @@ from pype.vals import Quote,LamTup,PypeVal,Getter,delam
 import numpy as np
 import sys
 import pprint as pp
+from inspect import Signature
+import types
+#import __builtins__
 
 __version__='1.0.1'
+
+#BUILTINS=set(__builtins.__dict__.values())
 
 ###########
 # LOGGING #
@@ -44,12 +49,20 @@ is_iterable=lambda x: isinstance(x,Iterable)
 is_mapping=lambda x: isinstance(x,Mapping)
 is_hashable=lambda x: isinstance(x,Hashable)
 is_ndarray=lambda x: isinstance(x,np.ndarray)
-is_sequence=lambda x: isinstance(x,Sequence) or is_ndarray(x)
+is_sequence=lambda x: is_list(x) or is_ndarray(x) or isinstance(x,Sequence)
 is_container=lambda x: isinstance(x,Container)
 
 key=lambda x: tup[0]
 val=lambda x: tup[1]
 slc=lambda ls,start,stop: ls[start:stop]
+
+
+def is_number_indexable(x):
+
+    return is_list(x) \
+        or is_ndarray(x) \
+        or is_tuple(x)
+
 
 ################
 # GETTER CLASS #
@@ -63,7 +76,9 @@ MIRROR=Getter('_pype_mirror_')
 _=MIRROR
 __=MIRROR
 MIRROR_SET=set([MIRROR])
-#_0,_1,_2,_3=[(_,[i]) for i in range(4)]
+_0,_1,_2,_3=[LamTup((_,[i])) for i in range(4)]
+_last=(_,[-1])
+'''
 _0=Getter('_arg0_')
 _1=Getter('_arg1_')
 _2=Getter('_arg2_')
@@ -71,6 +86,8 @@ _3=Getter('_arg3_')
 _last=Getter('_arg_last')
 INDEX_ARG_DICT={k:i for (i,k) in enumerate([_0,_1,_2,_3])}
 INDEX_ARG_DICT[_last]=-1
+'''
+INDEX_ARG_DICT={}
 _i=Getter('_i_index_')
 _j=Getter('_j_index_')
 _k=Getter('_k_index_')
@@ -129,7 +146,23 @@ def eval_or_val(accum,val):
 
 def eval_or_accum(accum,fArg):
 
-    return pype(accum,fArg) if is_f_arg(val) else accum
+    return pype(accum,fArg) if is_f_arg(fArg) else accum
+
+
+def is_arg_dict(*accum):
+
+    return accum and is_dict(accum[0]) and ARGS in accum[0]
+
+
+def args(*accum):
+
+    # PROJECT - THINK OF PRE-INITIALIZING DICTIONARIES AND POPPING THEM FROM A STACK
+
+    if is_arg_dict(*accum):
+
+        return accum
+
+    return {ARGS:accum}
 
 
 ##########
@@ -140,57 +173,192 @@ def is_mirror(fArg):
 
     return is_getter(fArg) and fArg in MIRROR_SET
 
+
 def eval_mirror(accum,fArg):
+   
+    #print('='*30)
+    #print('eval_mirror')
+    #print(f'{str(accum)[:100]} is accum')
 
     return accum
 
 
-#############
-# INDEX ARG #
-#############
+#########
+# INDEX #
+#########
 
-def is_index_arg(fArg):
+def is_getitem(el):
 
-    #print('*'*30)
-    #print('is_index_arg')
-    #print('{} is fArg'.format(fArg))
-    #print('is_getter {}'.format(is_getter(fArg) and fArg in INDEX_ARG_DICT))
-    
-    return is_getter(fArg) and fArg in INDEX_ARG_DICT
+    return is_list(el) \
+        and len(el) == 1
 
 
-def eval_index_arg(accum,fArg):
+def is_indexable(el):
 
-    #print('*'*30)
-    #print('eval_index_arg')
-    #print('{} is fArg'.format(fArg))
+    return is_sequence(el) or is_mapping(el)
 
+
+def is_number_index(el):
+
+    return is_list(el) or is_mapping(el)
+
+
+def has_initial_object(fArg):
+
+    if (is_list(fArg) or is_tuple(fArg)) and len(fArg) >= 1:
+        
+        return has_initial_object(fArg[0])
+
+    if is_f_arg(fArg):
+
+        return False
+
+    return True
+
+
+def mirror_index_f_arg(accum,indexFArg):
+
+    '''
+    print('*'*30)
+    print('mirror_index_f_arg')
+    print(f'{indexFArg} is indexFArg')
+    print(f'{indexFArg[1]} is indexFArg[1]')
+    print(f'{is_tuple(indexFArg)} is tuple')
+    print(f'{eval_or_val(accum,indexFArg[1][0])}')
+    '''
+
+    if is_tuple(indexFArg) and len(indexFArg) >= 1:
+
+        return (mirror_index_f_arg(accum,indexFArg[0]),
+                [eval_or_val(accum,indexFArg[1][0])])
+
+    return MIRROR
+
+
+def get_initial_object(fArg):
+
+    #print(f'{fArg} is fArg')
+    #print(f'{is_tuple(fArg)} is tuple')
+
+    if is_tuple(fArg) and len(fArg) > 0 and is_getitem(fArg[1]):
+
+        return get_initial_object(fArg[0])
+
+    return fArg
+
+
+def get_all_indices(fArg,ls=[]):
+
+    if not is_tuple(fArg) or len(fArg) == 1:
+
+        ls.reverse()
+
+        return ls
+
+    ls.append(fArg[1][0])
+
+    return get_all_indices(fArg[0],ls)
+
+
+def is_index(fArg):
+
+    return is_tuple(fArg) \
+        and len(fArg) == 2 \
+        and is_getitem(fArg[1])
+
+
+FALSE_ARGS=args(False)
+
+
+def eval_numpy_index(accum,fArgs):
+
+    #print('eval_numpy_index')
+    #print(f'{accum} is accum')
+    #print(f'{fArgs} is fArgs')
+
+    indices=[eval_or_val(accum,index) for index in get_all_indices(fArgs)]
+
+    #print(f'{indices} is indices')
+
+    return args(accum[tuple(indices)])
+
+
+def eval_index(accum,fArgs):
+
+    #print('='*20)
+    #print('eval_index')
     accum=accum[ARGS][0]
-    index=INDEX_ARG_DICT[fArg]
+    #print(f'{accum} is accum before')
+    # First, let's see what the accum really is ...
+    # Notice this works for recursion as well.
+    #print(f'{fArgs[0]} is fArgs[0]')
+    #print(f'{is_f_arg(fArgs[0])} is is_f_arg')
 
-    #print('{} is accum'.format(accum))
+    if is_ndarray(accum):
 
-    if not is_dict(accum) and not is_sequence(accum):
+        return eval_numpy_index(accum,fArgs)
 
-        raise Exception('eval_index_arg: accum of type {} '
-                        'must be sequence or dict'.format(type(accum)))
+    # Here we deal with the xedni case, fArgs[0] is an object.
 
-    if len(accum) <= index:
+    if has_initial_object(fArgs):
 
-        raise Exception('eval_index_arg: accum of length {} '
-                        'cannot be accessed by index {}'.format(len(accum),index))
+        obj=get_initial_object(fArgs)
+        mirrorFArgs=mirror_index_f_arg(accum,fArgs)
 
-    #print('{} is index'.format(index))
-    #print('{} is accum[index]'.format(accum[index]))
-    #print('{} is eval_or_val'.format(eval_or_val(accum,accum[index])))
-    #print('{} accum[index] is farg'.format(is_f_arg(accum[index])))
-    #print('is_farg: {}'.format([(is_f(accum[index]),evl) for (is_f,evl) in FARG_PAIRS]))
-    #print('returning {}'.format(args(eval_or_val(accum,accum[index]))))
+        #print(f'{obj} is obj')
+        #print(f'{mirrorFArgs} is mirrorFArgs')
 
-    # UNDER WHAT CIRCUMSTANCES WOULD YOU GET AN ARRAY ELEMENT AND EVAL IT!
+        return args(eval_or_val(obj,mirrorFArgs))
 
-    #return args(eval_or_val(accum,accum[index]))
-    return args(accum[index])
+    # Otherwise, we just evaluate recursively.
+
+    else:
+
+        accum=eval_or_val(accum,fArgs[0])
+
+    index=eval_or_val(accum,fArgs[1][0])
+
+    #print(f'{str(accum)[:100]} is accum after')
+    #print(f'{is_ndarray(accum)} is nd_array')
+    #print(f'{fArgs} is fArgs')
+    #print(f'{index} is index')
+
+    # Not found, so we return False.
+
+    if not is_ndarray(accum) and accum is False:
+
+        return FALSE_ARGS
+
+    if is_number_indexable(accum):
+
+        if index >= len(accum):
+
+            return FALSE_ARGS
+
+        return args(accum[index])
+
+    if is_dict(accum):
+
+        if is_dict(accum) and index not in accum:
+
+            return FALSE_ARGS
+
+        return args(accum[index])
+
+    # No? Then let's see if it's an attribute of an object.
+
+    if is_string(index) and hasattr(accum,index):
+
+        accum=getattr(accum,index)
+
+        # Now here's a problem - we need to deal with the case that the 
+        # retrieved object is callable.  We're just going to take care of it 
+        # in the main loop.
+
+        return args(accum)
+
+    return FALSE_ARGS
+
 
 
 ############
@@ -202,7 +370,22 @@ def is_callable(fArg):
     return callable(fArg)
 
 
+
 def eval_callable(accum,fArg):
+
+    #print(f'{fArg.__module__} is module of {fArg}')
+
+    try:
+
+        argNum=len(Signature.from_callable(fArg)._parameters)
+
+        if argNum == 0:
+
+            return args(fArg())
+
+    except ValueError:
+
+        pass
 
     return args(fArg(*accum[ARGS]))
 
@@ -266,26 +449,27 @@ def is_reduce(fArg):
 
 def eval_reduce(accum,fArg):
 
-    #print('*'*30)
-    #print('eval_reduce')
-    #print(f'{fArg} is fArg')
+    print('*'*30)
+    print('eval_reduce')
+    print(f'{fArg} is fArg')
     
     accum=get_args(accum)
 
-    #if len(fArg) >= 2:
+    if len(fArg) >= 2:
 
-        #print(f'{fArg[1]} is fArg[1]')
+        print(f'{fArg[1]} is fArg[1]')
 
     startVal=eval_or_val(accum,fArg[1]) if len(fArg) >= 2 else None
 
-    #print(f'{accum} is accum')
+    print(f'{accum} is accum')
+    print(f'{startVal} is val')
 
     if(len(fArg) == 3):
 
         accum=pype(accum,fArg[2])
 
-    #print(f'now accum is {accum}')
-    #print(f'now startVal is {startVal}')
+    print(f'now accum is {accum}')
+    print(f'now startVal is {startVal}')
 
     fArg=fArg[0][0]
     pype_f=lambda acc,x: pype(args(acc,x),fArg)
@@ -371,196 +555,6 @@ def _iffp(*fArgs):
             'else':False}
 
 
-#########
-# INDEX #
-#########
-
-def is_getitem(el):
-
-    return is_list(el) \
-        and len(el) == 1
-
-
-def is_indexable(el):
-
-    return is_sequence(el) or is_mapping(el)
-
-
-def is_index_old(fArg):
-
-    #print('*'*30)
-    #print('is_index')
-    #print('fArg[0] is_index {}'.format(is_tuple(fArg) and is_indexable(fArg[0])))
-
-    return is_tuple(fArg) \
-        and len(fArg) >= 2 \
-        and (fArg[0] == _ or is_f_arg(fArg[0])) \
-        and all([is_getitem(f) for f in fArg[1:]])
-
-
-def get_index(el):
-
-    #print('*'*30)
-    #print('get_index')
-    #print('{} is el'.format(el))
-    
-    return el[0]
-
-
-def has_mirror(fArg):
-
-    if is_mirror(fArg):
-
-        return True
-
-    if (is_list(fArg) or is_tuple(fArg)) and len(fArg) >= 1:
-        
-        return has_mirror(fArg[0])
-
-    return False
-
-
-def has_index_arg(fArg):
-
-    if is_index_arg(fArg):
-
-        return True
-
-    if (is_list(fArg) or is_tuple(fArg)) and len(fArg) >= 1:
-        
-        return has_index_arg(fArg[0])
-
-    return False
-
-    
-def is_index(fArg):
-
-    return is_tuple(fArg) \
-        and len(fArg) == 2 \
-        and is_getitem(fArg[1]) \
-        and (has_mirror(fArg[0]) or has_index_arg(fArg[0]))
-        #and (fArg[0] == _ or is_f_arg(fArg[0])) 
-
-
-
-def eval_index(accum,fArgs):
-
-    accum=accum[ARGS][0]
-    #pp.pprint(accum)
-    #print('is accum')
-
-    if accum == False:
-
-        return args(False)
-
-    if not is_indexable(accum):
-
-        raise Exception('{} is not a sequence or a mapping'.format(accum))
-
-    accum=eval_or_val(accum,fArgs[0])
-
-    if accum == False:
-
-        return args(False)
-    
-    index=eval_or_val(accum,fArgs[1][0])
-
-    #if index == False:
-
-    #    return args(False)
-
-    if (is_list(accum) or is_tuple(accum)) \
-       and index > len(accum)-1:
-        
-        return args(False)
-    
-    if is_dict(accum) and index not in accum:
-        
-        return args(False)
-
-    return args(accum[index])
-
-        
-    
-
-def eval_index_old(accum,fArg):
-
-    #print('*'*30)
-    #print('eval_index')
-
-    accum=accum[ARGS][0]
-    
-    #print('{} is fArg'.format(fArg))
-    
-    accum=eval_or_accum(accum,fArg[0])
-
-    #print('{} is accum'.format(accum))
-    #print('{} is fArg'.format(fArg))
-
-    if not is_indexable(accum):
-
-        raise Exception('{} is not a sequence or a mapping'.format(accum))
-
-    try:
-
-        indices=[eval_or_val(accum,get_index(f)) for f in fArg[1:]]
-
-        #print('{} is indices'.format(indices))
-
-        val=reduce(lambda acc,index: acc[index],indices,accum)
-
-        return args(val)
-
-    except Exception as e:
-
-        raise e
-
-
-#########
-# XEDNI #
-#########
-
-def is_xedni(fArg):
-
-    return is_tuple(fArg) \
-        and len(fArg) >= 2 \
-        and is_indexable(fArg[0]) and not is_f_arg(fArg[0]) \
-        and all([is_getitem(f) for f in fArg[1:]])
-
-
-def eval_xedni(accum,fArg):
-
-    #print('*'*30)
-    #print('eval_xedni')
-    #print('{} is accum'.format(accum))
-    #print('{} is fArg'.format(fArg))
-
-    accum=accum[ARGS][0]
-    indexable=fArg[0]
-
-    if not is_sequence(indexable) and not is_mapping(indexable):
-
-        raise Exception('{} is not a sequence or a mapping'.format(indexable))
-
-    try:
-
-        #print('{} is fArg[1:]'.format(fArg[1:]))
-
-        indices=[get_index(f) for f in fArg[1:]]
-
-        #print('{} is indices'.format(indices))
-
-        indices=[eval_or_val(accum,get_index(f)) for f in fArg[1:]]
-
-        #print('{} is indices'.format(indices))
-
-        val=reduce(lambda acc,index: acc[index],indices,indexable)
-
-        return args(val)
-
-    except Exception as e:
-
-        raise e
 
 
 ##########
@@ -569,23 +563,41 @@ def eval_xedni(accum,fArg):
 
 def is_lambda(fArg):
 
-    #print('*'*30)
-    #print('is_lambda')
-    #print(f'{fArg} is fArg')
-    
-    #isLam=is_tuple(fArg) \
-    #    and len(fArg) >= 1 \
-    #    and not is_mirror(fArg[0]) \
-    #    and is_f_arg(fArg[0])
-    #print(f'{isLam} is lam')
-
     return is_tuple(fArg) \
-        and len(fArg) >= 1 \
-        and not is_mirror(fArg[0]) \
+        and len(fArg) > 1 \
+        and not is_getitem(fArg[1]) \
         and is_f_arg(fArg[0])
 
 
 def eval_lambda(accum,fArgs):
+
+    firstAccum=accum
+    accum=accum[ARGS][0]
+    calledFArg=fArgs[0]
+    # This is in cases where we do an indexing that returns a callable, like 
+    # (_.add1,1).  
+
+    # If it's not a function, the only thing it can possibly be is an index which
+    # evals as a funciton.  
+    if not is_callable(calledFArg):
+        
+        calledFArg=eval_index(firstAccum,calledFArg)[ARGS][0]
+
+    if calledFArg is False:
+
+        return FALSE_ARG
+
+    if not is_callable(calledFArg):
+
+        raise Exception(f'First fArg {str(calledFArg)[:100]} is not callable '
+                        'in a lambda expression.')
+
+    lambdaArgs=args(*[eval_or_val(accum,f) for f in fArgs[1:]])
+
+    return args(pype(lambdaArgs,calledFArg))                      
+
+
+def eval_lambda_old(accum,fArgs):
 
     '''
     print('*'*30)
@@ -641,7 +653,9 @@ def is_object_lambda(fArg):
     #print('*'*30)
     #print('is_object_lambda')
     #print('{} is fArg'.format(fArg))
-    # (_,'method')
+    # _.method.something (((_,['method']),['something']),)
+    # (_.method,'something') => ((_,['method']),'something')
+    # (_.method.othermethod,'something') => (((_,['method']),['othermethod']),'something')
  
     return is_tuple(fArg) \
         and len(fArg) > 1 \
@@ -653,6 +667,10 @@ def get_object_lambda_attr(accum,fArgs):
     
     attr=fArgs[1]
     
+    if is_dict(accum) and attr in accum:
+
+        return accum[attr]
+
     if not hasattr(accum,attr):
 
         raise Exception('accum object of type {} '
@@ -665,12 +683,13 @@ def get_object_lambda_attr(accum,fArgs):
 
 def eval_object_lambda(accum,fArgs):
 
-    #print('*'*30)
-    #print('eval_object_lambda')
-    #print('has_mirror_or_getter(fArgs) is {}'.format(has_mirror_or_getter(fArgs)))
-    #print('{} is fArgs'.format(fArgs))
-    #print('{} is accum'.format(accum))
-
+    '''
+    print('*'*30)
+    print('eval_object_lambda')
+    print('has_mirror_or_getter(fArgs) is {}'.format(has_mirror_or_getter(fArgs)))
+    print('{} is fArgs'.format(fArgs))
+    print('{} is accum'.format(accum))
+    '''
     accum=accum[ARGS][0]
 
     if is_mirror(accum):
@@ -684,11 +703,16 @@ def eval_object_lambda(accum,fArgs):
     #print('{} is obj'.format(obj))
 
     attr=get_object_lambda_attr(obj,fArgs)
+
+    if not is_f_arg(attr):
+
+        return args(attr)
+
     fArgs=args(*[eval_or_val(accum,fArg) for fArg in fArgs[2:]])
-
-    #print('{} is attr'.format(attr))
-    #print('{} is fArgs'.format(fArgs))
-
+    '''
+    print('{} is attr'.format(attr))
+    print('{} is fArgs'.format(fArgs))
+    '''
     return args(eval_or_val(fArgs,attr))
 
 ##################
@@ -724,41 +748,9 @@ def eval_filter(filter_f,accum,fArgs):
 
     
 
-##############
-# AND FILTER #    
-##############
-
-def is_and_filter(fArg):
-
-    return is_list(fArg) \
-        and len(fArg) == 1 \
-        and is_list(fArg[0]) \
-        and len(fArg[0]) >= 1 \
-        and (not is_string(fArg[0][0]) or fArg[0][0] not in ALL_ARGS) \
-        and all([is_f_arg(f) for f in fArg[0]])
-
-
-def filter_and(v,fArgs):
-
-    #print('*'*30)
-    #print('filter_and')
-    #print('{} is fArgs'.format(fArgs))
-    #print('{} is f_arg'.format(is_lambda(fArgs[0])))
-    #print('{} is v'.format(v))
-
-    return all([pype(v,fArg) for fArg in fArgs])
-
-
-def eval_and_filter(accum,fArgs):
-
-    fArgs=[delam(f) for f in fArgs[0]]
-
-    return eval_filter(filter_and,accum,fArgs)
-
-
-#############
-# OR FILTER #
-#############
+##########
+# FILTER #
+##########
 
 def is_or_filter(fArg):
 
@@ -1269,106 +1261,6 @@ ALL_ARGS=set().union(PYPE_ARGS,
                      LIST_CONCAT_ARGS,
                      WHILE_LOOP_ARGS)
 
-#############
-# FOR INDEX #
-#############
-
-def is_for_index(fArg):
-
-    return is_getter(fArg) \
-        and fArg in FOR_ARG_DICT
-
-
-def eval_for_index(accum,fArg):
-
-    accum=accum[ARGS][0]
-    index=FOR_ARG_DICT[fArg]
-
-    return accum[index]
-
-
-############
-# FOR LOOP #
-############
-
-def is_for_loop(fArg):
-
-    return is_list(fArg) \
-        and len(fArg) >= 1 \
-        and is_tuple(fArg[0]) \
-        and len(fArg[0]) > 1 \
-        and all([is_getitem(el) for el in fArg[0]])
-
-
-def eval_for_indices(tup,fArg):
-    ''' 
-    What we are trying to do here is rebuild the expression, 
-    replacing only the for indices.
-    '''
-    #print('*'*30)
-    #print('eval_for_indices')
-    #print('{} is tup'.format(tup))
-    #print('{} is fArg'.format(fArg))
-
-    if is_for_index(fArg):
-
-        return eval_for_index(args(tup),fArg)
-
-    elif is_string(fArg):
-
-        return fArg
-
-    elif is_mapping(fArg):
-
-        #print('is mapping')
-
-        return {eval_for_indices(k):eval_for_indices(v) \
-                for (k,v) in fArg.items()}
-
-    elif is_iterable(fArg):
-
-        #print('is iterable')
-
-        ls=[eval_for_indices(tup,el) for el in fArg]
-
-        if is_tuple(fArg):
-
-            return tuple(ls)
-
-        return ls
-
-    else:
-
-        return fArg
-    
-        
-def eval_for_loop(accum,fArg):
-
-    #print('*'*30)
-    #print('eval_for_loop')
-    #print('{} is fArg'.format(fArg))
-
-    accum=accum[ARGS][0]
-    forLoopItems=[eval_or_val(accum,f[0]) for f in fArg[0]]
-    forLoopItems=[range(item) if is_int(item) else item \
-                  for item in forLoopItems]
-
-    if len(fArg) > 1:
-
-        fArg=fArg[1]
-
-        #print('{} is tup replaced expression'\
-        #      .format([eval_for_indices(tup,fArg) \
-        #               for tup in product(*forLoopItems)]))
-        #print('{} is evalled tup replaced'\
-        #      .format(args([eval_or_val(accum,eval_for_indices(tup,fArg)) \
-        #             for tup in product(*forLoopItems)])))
-
-        return args([eval_or_val(accum,eval_for_indices(tup,fArg)) \
-                     for tup in product(*forLoopItems)])
-
-    return args(list(product(*forLoopItems)))
-
 
 #########
 # QUOTE #
@@ -1428,18 +1320,13 @@ def _do(fArg):
 ########
 
 FARG_PAIRS=[(is_mirror,eval_mirror),
-            (is_index_arg,eval_index_arg),
             (is_callable,eval_callable),
             (is_map,eval_map),
-            (is_for_loop,eval_for_loop),
             (is_reduce,eval_reduce),
-            #(is_and_filter,eval_and_filter),
             (is_or_filter,eval_or_filter),
             (is_switch_dict,eval_switch_dict),
             (is_lambda,eval_lambda),
             (is_index,eval_index),
-            (is_object_lambda,eval_object_lambda),
-            (is_xedni,eval_xedni),
             (is_dict_build,eval_dict_build),
             (is_dict_assoc,eval_dict_assoc),
             (is_dict_merge,eval_dict_merge),
@@ -1452,22 +1339,6 @@ FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_do,eval_do),
             (is_embedded_pype,eval_embedded_pype),
            ]
-
-
-def is_arg_dict(*accum):
-
-    return accum and is_dict(accum[0]) and ARGS in accum[0]
-
-
-def args(*accum):
-
-    # PROJECT - THINK OF PRE-INITIALIZING DICTIONARIES AND POPPING THEM FROM A STACK
-
-    if is_arg_dict(*accum):
-
-        return accum
-
-    return {ARGS:accum}
 
 
 def get_args(accum):
@@ -1507,31 +1378,36 @@ def pype_eval(accum,fArg):
 
     try:
 
-        if 'timing' in PYPE_LOGGING and PYPE_LOGGING['timing']==True:
+        # Here we add some boilerplate for time-logging. 
 
-            t0=tm.time()
+        if 'timing' in PYPE_LOGGING and PYPE_LOGGING['timing'] is True:
 
-            v=eval_f(accum,fArg)
-        
-            d=tm.time() - t0
+            eval_with_time(eval_f,accum,fArg)
 
-            if 'threshold' in PYPE_LOGGING and d >= PYPE_LOGGING['threshold']:
+        val=eval_f(accum,fArg)
 
-                print('='*30)
-                pp.pprint(fArg)
-                print(f'time to eval: {tm.time() - t0}')
+        #print(f'after first eval of {eval_f} on {fArg} val is {val}')
 
-            return v
+        # In the case that a callable is returned, we do a greedy evaluation on the
+        # fArg.  This allows us to handle object lambdas, xednis, indexes, and
+        # mirrors.  If we have _.keys it will work.  If we have (_.func,1), 
+        # _.func needs to be evaluated on 1.  So lambda cannot return a callable.  
 
-        if 'trace' in PYPE_LOGGING and PYPE_LOGGING['trace']==True:
+        if val[ARGS] and is_callable(val[ARGS][0]):
 
-            print('*'*30)
-            print(f'{accum} is accum')
-            print(f'{fArg} is fArg')
-            print(f'{eval_f} is eval_f')
-            print(f'{eval_f(accum,fArg)} is eval_f(accum,fArg)')
+            #print(f'val {val[ARGS][0]} is callable')
 
-        return eval_f(accum,fArg)
+            val=eval_callable(accum,val[ARGS][0])
+
+            #print(f'after second eval of {eval_f} val is {val}')
+
+        # Some boilerplate for keeping track of the fArg.
+
+        if 'trace' in PYPE_LOGGING and PYPE_LOGGING['trace'] is True:
+
+            trace(accum,fArg,eval_f,val)
+  
+        return val
 
     except Exception as e:
 
@@ -1545,6 +1421,31 @@ def pype_eval(accum,fArg):
         print(' '.join(ls))
 
         raise e
+
+
+def trace(accum,fArg,eval_f,val):
+
+    print('*'*30)
+    print(f'{accum} is accum')
+    print(f'{fArg} is fArg')
+    print(f'{eval_f} is eval_f')
+    print(f'{val} is eval_f(accum,fArg)')
+
+
+def eval_with_time(eval_f,accum,f_arg):
+
+    t0=tm.time()
+    val=eval_f(accum,fArg)
+    d=tm.time() - t0
+
+    if 'threshold' in PYPE_LOGGING and d >= PYPE_LOGGING['threshold']:
+        
+        print('='*30)
+        pp.pprint(fArg)
+        print(f'time to eval: {tm.time() - t0}')
+    
+    return val
+
 
 import pprint as pp
 
@@ -1595,1004 +1496,79 @@ def build_pype_multi(*fArgs):
 
 
 ########
-# DEMO #
+# TEST #
 ########
 
-def demo():
-
-    print("WELCOME TO PYPE!")
-    print("Here are several pype expressions, with their values")
-
-    print("="*30)
-
-    call_me=lambda : 1
-    add1=lambda x: x+1
-    sm=lambda x,y: x+y
-
-    ##################
-    # CHECKING FARGS #
-    ##################
-
-    print('>'*30)
-    print('CHECKING FARGS')
-    print('>'*30)
-
-    print('='*30)
-    print('is_callable(call_me)')
-
-    x=is_callable(call_me)
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_mirror(_)')
-
-    x=is_f_arg(call_me)
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_map([add1,add1])')
-
-    x=is_map([add1,add1])
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_map([add1,add1,_])')
-
-    x=is_map([add1,add1,_])
-
-    print(x)
-
-    assert(x == True)
-
-    sm=lambda x,y: x+y
-
-    print('='*30)
-    print('is_reduce([(sm,)])')
-
-    x=is_reduce([(sm,)])
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_reduce([(sm,),1])')
-
-    x=is_reduce([(sm,),1])
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_switch_dict({1:2,3:4,"else":5})')
-
-    x=is_switch_dict({1:2,3:4,'else':5})
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_lambda((add1,_))')
-
-    x=is_lambda((add1,_))
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_index((_,[2]))')
-
-    x=is_index((_,[2]))
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('is_index((_,[2],[3],[4]))')
-
-    x=is_index((_,[2]))
-
-    print(x)
-
-    assert(x == True)
-
-    ########
-    # ARGS #
-    ########
-
-    print('>'*30)
-    print('ARGS')
-    print('>'*30)
-    
-    print('args(1)')
-    print(args(1))
-
-    print('args([1,2,3])')
-    print(args([1,2,3]))
-
-    print('args({ARGS:(1,2,3)})')
-    print(args({ARGS:(1,2,3)}))
-
-    ############
-    # CALLABLE #
-    ############
-
-    print('>'*30)
-    print('CALLABLE')
-    print('>'*30)
-
-    add1=lambda x: x+1
-
-    print('='*30)
-    print('pype(1,add1)')
-
-    x=pype(1,add1)
-
-    print(x)
-    
-    assert(x == 2)
-
-    print('='*30)
-    print('pype(1,add1,add1,add1)')
-
-    x=pype(1,add1,add1,add1)
-
-    print(x)
-    
-    assert(x == 4)
-
-    ##########
-    # MIRROR #
-    ##########
-
-    print('>'*30)
-    print('MIRROR')
-    print('>'*30)
-
-    print('='*30)
-    print('pype(1,_)')
-
-    x=pype(1,_)
-    
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-    print('pype(1,add1,_)')
-
-    x=pype(1,add1,_)
-    
-    print(x)
-
-    assert(x == 2)
+def test():
 
     #############
     # INDEX ARG #
     #############
 
-    print('>'*30)
+    ls=[0,1,2,3]
+    dct={'a':8,'b':9}
+
+    def add1(dct): 
+
+        dct['another10']=10
+
+        return dct
+
+    def add2(dct): 
+
+        dct['another20']=20
+
+        return dct
+
+    funcDct={'add1':add1,
+             'add2':add2}
+
+    print(f'{ls} is ls')
+    print(f'{dct} is dct')
+    print(f'{add1} is add1')
+
+    print('*'*30)
     print('INDEX ARG')
-    print('>'*30)
 
-    print('='*30)
+    print(f'{pype(ls,_0)} is pype(ls,_0)')
+    print(f'{pype(ls,_1)} is pype(ls,_1)')
+    print(f'{pype(ls,_2)} is pype(ls,_1)')
 
-    print('pype(tup,_0)')
-
-    tup=(1,2,3)
-
-    x=pype(tup,_0)
-
-    print(x) 
-
-    assert(x == 1)
-
-    print('='*30)
-
-    print('pype(tup,_1)')
-
-    tup=(1,2,3)
-
-    x=pype(tup,_1)
-
-    print(x) 
-
-    assert(x == 2)
-
-
-    #######
-    # MAP #
-    #######
-
-    print('>'*30)
-    print('MAP')
-    print('>'*30)
-
-    print('='*30)
-    print('pype([1,2,3,4],[add1]')
-
-    x=pype([1,2,3,4],[add1])
-
-    print(x)
-
-    assert(x == [add1(1),add1(2),add1(3),add1(4)])
-
-    print('='*30)
-    print('pype({1:1,2:2},[add1]')
-
-    x=pype({1:1,2:2},[add1])
-
-    print(x)
-
-    assert(x == {1:add1(1),2:add1(2)})
-
-    ##########
-    # REDUCE #
-    ##########
-
-    print('>'*30)
-    print('REDUCE')
-    print('>'*30)
-
-    print('='*30)
-    print('pype([1,2,3],[(sm,)])')
-    
-    x=pype([1,2,3],[(sm,)])
-    
-    print(x)
-
-    assert(x == 6)
-
-    print('='*30)
-    print('pype({1:1,2:2},[(sm,)])')
-    
-    x=pype({1:1,2:2},[(sm,),1])
-    
-    print(x)
-
-    assert(x == 4)
-
-    print('='*30)
-    print('pype([1,1,1},[(sm,),1,[add1]])')
-    
-    x=pype([1,1,1],[(sm,),1,[add1]])
-    
-    print(x)
-
-    assert(x == 7)
-    
-    #sys.exit(1)
-
-    ###############
-    # SWITCH DICT #
-    ###############
-
-    print('>'*30)
-    print('SWITCH DICT')
-    print('>'*30)
-
-    print('pype(1,{1:"one",2:"two","else":"nothing"})')
-
-    x=pype(1,{1:"one",2:"two","else":"nothing"})
-
-    print(x)
-
-    assert(x == "one")
-
-    print('='*30)
-
-    gt1=lambda x: x > 1
-    lt3=lambda x: x < 3
-
-    print('pype(1,{gt1:"greater 1", lt3:"less than three", "else":_')
-
-    x=pype(1,{gt1:"greater 1", lt3:"less than three", "else":_})
-
-    print(x)
-
-    assert(x == 'less than three')
-
-    print('pype(5,{gt1:"greater 1","else":_')
-
-    x=pype(-5,{gt1:"greater 1","else":_})
-
-    print(x)
-
-    assert(x == -5)
-
-    add2=lambda x: x+2
-
-    print('='*30)
-
-    print('pype(5,{gt1:"greater 1","else":add1')
-
-    x=pype(5,{gt1:add2,"else":add1})
-
-    print(x)
-
-    assert(x == 7)
-
-    print('='*30)
-    
-    print('pype(1,(sm,_,2))')
-
-    x=pype(1,(sm,_,2))
-
-    print(x)
-    
-    assert(x == 3)
-
-
-    #########
-    # INDEX #
-    #########
-
-    print('>'*30)
+    print('*'*30)
     print('INDEX')
-    print('>'*30)
 
-    print('='*30)
+    print(f'{pype(ls,_[0])} is pype(ls,_[0])')
+    print(f'{pype(ls,_[1])} is pype(ls,_[1])')
+    print(f'{pype(ls,_[2])} is pype(ls,_[1])')
 
-    ls=[1,2,3,4]
+    print(f'{pype(dct,_["a"])} is pype(dct,_["a"])')
+    print(f'{pype(dct,_["b"])} is pype(dct,_["b"])')
 
-    print('pype(ls,(_,[0])))')
+    print(f'{pype(dct,_.a)} is pype(dct,_.a)')
+    print(f'{pype(dct,_.b)} is pype(dct,_.b)')
+    print('Now trying function values of dicitonaries')
 
-    x=pype(ls,(_,[0]))
+    print(f'{pype(funcDct,_["add1"])} is pype(funcDct,_["add1"])')
+    print(f'{pype(funcDct,_["add2"])} is pype(funcDct,_["add2"])')
 
-    print(x)
+    print(f'{pype(funcDct,_.add1)} is pype(funcDct,_.add1)')
+    print(f'{pype(funcDct,_.add2)} is pype(funcDct,_.add2)')
+
+    print('*'*30)
+    print('CALLING OBJECTS')
     
-    assert(x == 1)
+    class Caller:
 
-    print('='*30)
-
-    dct={1:2,3:4}
-
-    print('pype(dct,(_,[3]))')
-
-    x=pype(dct,(_,[3]))
-
-    print(x)
-    
-    assert(x == 4)
-
-    bigLS=[[1,2,3],[2,3,4]]
-
-    print('='*30)
-
-    print('pype(bigLS,(_,[0],[1]))')
-
-    x=pype(bigLS,(_,[0],[1]))
-
-    print(x)
-
-    assert(x == 2)
-
-    print('='*30)
-
-    print('pype(ls,(_,[(sub,(len,_),1)]))')
-
-    x=pype(ls,(_,[(sub,(len,_),1)]))
-
-    print(x)
-
-    assert(x == 4)
-
-    #########
-    # XEDNI #
-    #########
-
-    print('>'*30)
-    print('XEDNI')
-    print('>'*30)
-
-    print('='*30)
-
-    print('pype(1,(ls,[_]))')
-
-    x=pype(1,(ls,[_]))
-
-    print(x)
-
-    assert(x == 2)
-
-    print('='*30)
-
-    print('pype(1,(ls,[(add,_,1)]))')
-
-    x=pype(1,(ls,[(add,_,1)]))
-
-    print(x)
-
-    assert(x == 3)
-
-    print('='*30)
-
-    print('pype([0,1],[(ls,[_])]')
-
-    x=pype([0,1],[(ls,[_])])
-
-    print(x)
-
-    assert(x == [1,2])
-
-    print('='*30)
-
-    print('pype([0,1],[(ls,[(add,_,1)])])')
-
-    x=pype([0,1],[(ls,[(add,_,1)])])
-
-    print(x)
-
-    assert(x == [2,3])
-    
-    ##########
-    # LAMBDA #
-    ##########
-
-    print('>'*30)
-    print('LAMBDA')
-    print('>'*30)
-
-    one=lambda: 1
-
-    print('='*30)
-    
-    print('pype(0,(one,))')
-
-    x=pype(0,(one,))
-
-    print(x)
-    
-    assert(x == 1)
-
-    print('='*30)
-    
-    print('pype(1,(sm,(sm,_,3),2))')
-
-    x=pype(1,(sm,(sm,_,3),2))
-
-    print(x)
-    
-    assert(x == 6)
-
-    print('='*30)
-    
-    print('pype(1,(sm,(sm,_,3),2))')
-
-    x=pype(1,(sm,(sm,_,(sm,_,5)),_))
-
-    print(x)
-    
-    assert(x == 8)
-
-    print('='*30)
-    
-    print('pype(1,(gt,_,0))')
-
-    x=pype(1,(gt,_,0))
-
-    print(x)
-    
-    assert(x == True)
-
-    #################
-    # OBJECT LAMBDA #
-    #################
-    
-    class CallMe:
-
-        def __init__(self):
-
-            self.me="me"
-
-        def add1(self,y):
-
-            return y+1
-
-        def sum(self,y,z):
-
-            return y+z
-
-        def hi(self):
+        def call_me(self):
 
             return "hi"
 
-    class Call:
+    cllr=Caller()
 
-        def __init__(self):
+    print(f'{cllr} is Caller')
 
-            pass
-
-        def get_call_me(self):
-
-            return CallMe()
-
-    print('>'*30)
-    print('OBJECT LAMBDA')
-    print('>'*30)
-
-    print('='*30)
-    
-    print('pype(CallMe(),((_,"hi"),))')
-
-    x=pype(CallMe(),((_,"hi"),))
-
-    print(x)
-
-    assert(x == 'hi')
-
-    print('='*30)
-
-    print('pype(CallMe(),(_,"hi")')
-
-    x=pype(CallMe(),(_,"hi"))
-
-    print(x)
-
-    assert(x == 'hi')
-
-    print('='*30)
-
-    print('pype(CallMe(),_.hi')
-
-    print('_.hi is really {}'.format(_.hi))
-
-    x=pype(CallMe(),_.hi)
-
-    print(x)
-
-    assert(x == 'hi')
-
-    print('='*30)
-    
-    print('pype(CallMe(),(_,"me"))')
-
-    x=pype(CallMe(),(_,"me"))
-
-    print(x)
-
-    assert(x == 'me')
-
-    print('='*30)
-    
-    print('pype(CallMe(),_.me)')
-
-    print('_.me is really {}'.format(_.me))
-
-    x=pype(CallMe(),_.me)
-
-    print(x)
-
-    assert(x == 'me')
-
-    print('='*30)
-    
-    print('pype(CallMe(),(_,"add1",2))')
-
-    x=pype(CallMe(),(_,"add1",2))
-
-    print(x)
-
-    assert(x == 3)
-
-    print('='*30)
-    
-    print('pype(CallMe(),(_,"sum",2,3))')
-
-    x=pype(CallMe(),(_,"sum",2,3))
-
-    print(x)
-
-    assert(x == 5)
-
-    print('='*30)
-
-    print('pype(Call(),(_,"get_call_me"),(_,"add1",2))')
-
-    x=pype(Call(),(_,"get_call_me"),(_,"add1",2))
-
-    print(x)
-
-    assert(x == 3)
-
-    print('='*30)
-
-    print('pype(Call(),_.get_call_me,(_.add1,2))')
-
-    x=pype(Call(),_.get_call_me,(_.add1,2))
-
-    print(x)
-
-    assert(x == 3)
-
-    print('='*30)
-
-    c={'call':Call()}
-
-    print('Call() is callable: {}'.format(is_callable(c['call'])))
-    print("pype(d,_['call'].get_call_me)")
-    print(_['call'].get_call_me)
-
-    x=pype(c,_['call'].get_call_me)
-
-    print(x)
-
-    print('='*30)
-
-    ls=[Call()]
-
-    print("pype(d,_0.get_call_me)")
-    print(_0.get_call_me)
-    print(delam(_0.get_call_me))
-    print('is_object_lambda(_0.get_call_me) {}'.format(is_object_lambda(_0.get_call_me)))
-
-    x=pype(ls,_0.get_call_me)
-
-    print(x)
-
-    #sys.exit(1)
-    #print('='*30)
-
-    #print("pype({'a':1},(_,'a'))")
-
-    #x=pype({'a':1},(_,'a'))
-
-    #print(x)
-
-    #assert(x == 1)
-
-    print('>'*30)
-    print('AND FILTERS')
-    print('>'*30)
-
-    print('='*30)
-
-    print('pype([1,2,-1,-5,7],[[(gt,_,1)]])')
-
-    x=pype([1,2,-1,-5,7],[[(gt,_,1)]])
-
-    print(x)
-
-    assert(x == [2,7])
-
-    print('='*30)
-
-    print('pype([1,2,-1,-5,7,4,3,8],[[(gt,_,1),(lt,_,6)]])')
-
-    x=pype([1,2,-1,-5,7,4,3,8],[[(gt,_,1),(lt,_,6)]])
-
-    print(x)
-
-    assert(x == [2,4,3])
-
-    print('>'*30)
-    print('OR FILTERS')
-    print('>'*30)
-
-    print('='*30)
-
-    print('pype([1,2,3,4,5,2,2,43,4,3],{(eq,_,3),(eq,_,2)})')
-
-    x=pype([1,2,3,4,5,2,2,43,4,3],{(eq,_,3),(eq,_,2)})
-
-    print(x)
-
-    assert(x == [2,3,2,2,3])
-
-    print('>'*30)
-    print('DICT BUILD')
-    print('>'*30)
-
-    x=pype(1,{_:_,'add1':add1,3:4,add1:add1})
-
-    print(x)
-
-    assert(x == {1:1,'add1':2,3:4,2:2})
-
-    print('='*30)
-    add1=lambda x: x+1
-    print("[d,{_:_,'add1':add1,3:4,add1:add1}]")
-    db=[d,{_:_,'add1':add1,3:4,add1:add1}]
-    #print("is_dict_build([d,{_:_,'add1':add1,3:4,add1:add1}]) {}".format(is_dict_build(db)))
-
-    x=pype(1,[d,{_:_,'add1':add1,3:4,add1:add1}])
-
-    print(x)
-
-    assert(x == {1:1,'add1':2,3:4,2:2})
-
-    print('>'*30)
-    print('DICT ASSOC')
-    print('>'*30)
-
-    x=pype(1,
-           {_:_,'add1':add1,3:4,add1:add1},
-           [assoc,'one','more'])
-
-    print(x)
-
-    assert(x == {1:1,'add1':2,3:4,2:2,'one':'more'})
-
-    print('>'*30)
-    print('DICT MERGE')
-    print('>'*30)
-
-    x=pype(1,
-           {_:_,'add1':add1,3:4,add1:add1},
-           [merge,
-            {'one':'more',
-             'and':(add1,(_,['add1']))}])
-
-    print(x)
-
-    assert(x == {1:1,'add1':2,3:4,2:2,'and':3,'one':'more'})
-
-    print('>'*30)
-    print('DICT DISSOC')
-    print('>'*30)
-
-    x=pype({1:2,3:4,5:6},[dissoc,1,3])
-
-    print(x)
-
-    assert(x == {5:6})
-
-    print('>'*30)
-    print('LIST BUILD')
-    print('>'*30)
-
-    x=pype(1,[l,add1,2,add1])
-
-    assert(x == [2,2,2])
-
-    print(x)
-
-    print('>'*30)
-    print('LIST APPEND')
-    print('>'*30)
-
-    x=pype([1,2,3],[append,4,5,6])
-
-    print(x)
-
-    assert(x == [1,2,3,4,5,6])
-
-    print('>'*30)
-    print('LIST CONCAT')
-    print('>'*30)
-
-    print('='*30)
-
-    x=pype([1,2,3],_concat(_,[4,5,6],[7,8]))
-
-    print(x)
-
-    assert(x == [1,2,3,4,5,6,7,8])
-
-    print('>'*30)
-    print('FOR LOOP')
-    print('>'*30)
-
-    print('='*30)
-
-    ls1=[1,2,3]
-    ls2=[2,3,4]
-
-    print('pype(ls1,[([_],[ls2]),(add,_i,_j)])')
-    x=pype(ls1,[([_],[ls2]),(add,_i,_j)])
-
-    print(x)
-
-    print('='*30)
-
-    ls1=[1,2,3]
-    ls2=[2,3,4]
-
-    print('pype(ls1,[([_],[ls2]),(add,_i+_0,_j)])')
-    x=pype(ls1,[([_],[ls2]),(add,_i+_0,_j)])
-
-    print(x)
-
-
-    print('>'*30)
-    print('WHILE LOOP')
-    print('>'*30)
-
-    #print(_while_loop(_last > 4,
-    #                  _append(_last+1),
-    #                  _))
-    print('pype([1],_while_loop(_last > 4,_append(_last+1),_))')
-    x=pype([1],_while_loop(_last > 4,
-                           _append(_last+1),
-                           _))
-
-    print(x)
-
-    assert(x == [1,2,3,4,5])
-
-    print('while_list_append ...')
-
-    x=pype([1],_while_list_append(_last > 4,
-                                  _last+1,
-                                  _))
-
-    print(x)
-
-    assert(x == [1,2,3,4,5])
-
-    print('while_range ...')
-
-    x=pype(1,_while_range(_last > 4,
-                          _last+1,
-                          _))
-
-    print(x)
-
-    assert(x == [1,2,3,4,5])
-
-    print('='*30)
-
-    print('>'*30)
-    print('GETTER')
-    print('>'*30)
-
-    print('='*30)
-    
-    print('pype([1,2,3],_[1])')
-
-    x=pype([1,2,3],_[1])
-
-    print(x)
-
-    assert(x == 2)
-
-    print('>'*30)
-    print('EMBEDDED PYPE')
-    print('>'*30)
-
-    print('='*30)
-
-    x=pype(1,[embedded_pype,add1,add1])
-
-    print(x)
-
-    assert(x == 3)
-
-    print('>'*30)
-    print('QUOTE')
-    print('>'*30)
-
-    print('='*30)
-
-    add_two=lambda x,y:x+y
-    x=pype(2,(add_two,_,Quote(1)))
-
-    print('pype(2,Quote(1))')
-
-    print(x)
-
-    add2=lambda x: x+2
-    calc=lambda x,f: x*f(x)
-    
-    print('='*30)
-
-    x=pype(2,(calc,_,Quote(add2)))
-
-    print('pype(2,(calc,_,Quote(add2)))')
-    print(x)
-
-    assert(x == 2*(2+2))
-    
-    print('='*30)
-
-    ls=[{'a':1,'b':2},{'a':3,'b':4}]
-
-    x=pype(ls,_0)
-
-    print('pype(ls,_0)')
-    print(x)
-
-
-    print('>'*30)
-    print('PYPEVAL')
-    print('>'*30)
-
-    print('='*30)
-
-    lenf=PypeVal(len)
-
-    x=pype([1,3,4,2],lenf > 5)
-
-    print('pype([1,3,4,2],lenf > 5)')
-
-    print(x)
-
-    assert(x == False)
-
-    print('='*30)
-
-    x=pype([1,3,4,2],lenf > 2)
-
-    print('pype([1,3,4,2],lenf > 2)')
-
-    print(x)
-
-    assert(x == True)
-
-    print('='*30)
-
-    ls=[1,2,3,4]
-    lsV=PypeVal(ls)
-
-    print(lsV[_])
-
-    x=pype([1,3],[lsV[_]])
-
-    print('pype([1,3],[lsV[_]])')
-
-    print(x)
-
-    assert(x == [2,4])
-
-    print('>'*30)
-    print('BUILD PYPE')
-    print('>'*30)
-
-    print('='*30)
-
-    sm=lambda x,y: x+y
-
-    pp=build_pype(add1)
-
-    print('build_pype(add1)')
-    
-    x=pp(1)
-
-    print(x)
-
-    assert(x==2)
-
-    print('='*30)
-
-    pp=build_pype_multi(sm)
-
-    print('build_pype(sm)')
-    
-    x=pp(1,2)
-
-    print(x)
-
-    assert(x==3)
-
-    print('>'*30)
-    print('DO')
-    print('>'*30)
-
-    print('='*30)
-
-    ls=[1,452,5,6,7,23]
-
-    x=pype(ls,_do(_.sort))
-
-    print("pype(ls,_do(_.sort))")
-
-    assert(x==[1, 5, 6, 7, 23, 452])
-
-    print(x)
+    print(f'{pype(cllr,_.call_me)} is pype(cllr,_.call_me)')
 
 if __name__=='__main__':
 
-    demo()
+    test()

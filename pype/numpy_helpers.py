@@ -1,6 +1,6 @@
 import numpy as np
 
-def aggregate_by_key(m):
+def aggregate_by_key(m,pad=True):
     '''
     This is a helper which takes an array with two columns.  It is the numpy
     equivalent of grouping represented by tup_ls_dct in pype.
@@ -30,16 +30,34 @@ def aggregate_by_key(m):
     uniqueKeys=np.unique(m[:,0],return_counts=True)
     splitValues=np.split(m[:, 1], 
                          np.cumsum(uniqueKeys[1])[:-1])
-    maxLen=np.max([a.shape[0] for a in splitValues])
-    aggregatedValues=[np.lib.pad(a,
-                                 (0,maxLen-a.shape[0]),
-                                 'constant',
-                                 constant_values=(0,0))\
-                      for a in splitValues]
-    aggregatedValues=np.array(aggregatedValues)
+
+    if pad:
+
+        maxLen=np.max([a.shape[0] for a in splitValues])
+        aggregatedValues=[np.lib.pad(a,
+                                     (0,maxLen-a.shape[0]),
+                                     'constant',
+                                     constant_values=(0,0))\
+                          for a in splitValues]
+        aggregatedValues=np.array(aggregatedValues)
+
+    else: 
+        
+        aggregatedValues=splitValues
 
     return aggregatedValues,uniqueKeys[0],uniqueKeys[1]
 
+
+def aggregate_jsons_by_key(ls,key):
+
+    uniqueVals=np.unique([js[key] for js in ls])
+    indexToKeyMap={k:i for (i,k) in enumerate(uniqueVals)}
+    m=np.array([(indexToKeyMap(js[key]),i) for (i,js) in enumerate(ls)])
+    aggregatedValues,keys,uniqueKeys=aggregate_by_key(m,False)
+
+    return {k:[ls[index] for index in l] \
+            for (k,l) in zip(uniqueVals,aggregatedValues)}
+    
 
 def np_int_array(x):
 
@@ -49,3 +67,104 @@ def np_int_array(x):
 def sum_by_row(x):
 
     return np.sum(x,axis=1)
+
+
+def sum_by_column(x):
+
+    return np.sum(x,axis=0)
+
+
+def vector_copy_matrix(shape,vector):
+
+    z=np.zeros(shape)
+    z[:,:]=vector
+
+    return z
+
+
+def trans(m):
+
+    return m.T
+
+
+def square_ones_tri(rows,k=0):
+
+    return np.triu(np.ones([rows,rows]),k)
+
+
+def zero_below(x,thresh=0):
+
+    x[x < thresh]=0
+
+    return x
+
+
+def zero_above(x,thresh=0):
+
+    x[x > thresh]=0
+
+    return x
+    
+
+def num_rows(a):
+
+    return a.shape[0]
+
+
+def num_cols(a):
+
+    return a.shape[1]
+
+
+def nonzero_indices(m):
+
+    lastCol=m.shape[1]-1
+    colStart=(m[0,:]!=0).argmax(axis=0)
+    rowEnd=(m[:,lastCol]!=0).argmax(axis=0)
+    rowEnd+=np.count_nonzero(m[rowEnd:,lastCol]>0)
+
+    return rowEnd,colStart
+
+
+def add_upper_right_corner(m1,m2):
+
+    m1Rows=m1.shape[0]
+    m2Rows=m2.shape[0]
+    m1Cols=m1.shape[1]
+    m2Cols=m2.shape[1]
+    m1[:m2Rows,m1Cols-m2Cols:]+=m2
+
+    return m1
+
+
+def off_diagonal(ln,offset=0):
+
+    numOnes=ln-offset
+    ones=np.ones(numOnes)
+
+    return np.diag(ones,offset)
+
+
+def off_diagonal_fill(a,offset=0):
+
+    return np.diag(a,offset)
+
+
+def ones_filter(ln,offset=1):
+
+    return square_ones_tri(ln) - square_ones_tri(ln,offset)
+
+
+def log_with_zero(m):
+
+    return zero_below(np.log(m))
+
+
+def val_sum(dct):
+
+    return np.sum([v for (k,v) in dct.items()])
+
+
+def by_indices(a,tuples):
+
+    return [a[tup] for tup in tuples]

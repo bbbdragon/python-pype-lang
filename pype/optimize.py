@@ -37,11 +37,14 @@ import pprint as pp
 import astpretty
 from inspect import currentframe
 import types
+import builtins
 
 NUMPY_UFUNCS=set(dir(np))
 ACCUM_STORE=Name(id='accum',ctx=Store())
 ACCUM_LOAD=Name(id='accum',ctx=Load())
 RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
+MAJOR_TYPES=[int,str,float]
+MAJOR_TYPES={typ:typ.__name__ for typ in MAJOR_TYPES}
 
 ###########
 # HELPERS #
@@ -117,41 +120,107 @@ def module_attribute(moduleStrings):
                      ctx=Load())
 
 
+def get_last_attribute(fArg):
+
+    if isinstance(fArg,Call):
+
+        return get_last_attribute(fArg.func)
+
+    if isinstance(fArg,Attribute):
+
+        print(f'{dump(fArg)} is attribute')
+        return fArg.attr
+
 NUMPY_NAME=Name(id='np',ctx=Load())
     
-def callable_node_with_args(fArg,callableArgs):
+def find_type(name):
 
-    #print('='*30)
-    #print('callable node')
+    for typ,typName in MAJOR_TYPES.items():
+
+        if hasattr(typ,name):
+
+            return typName
+
+    return ''
+
+
+def function_node(fArg,accum=ACCUM_LOAD):
+
+    #print('>'*30)
+    #print('function_node')
+    #print(f'{fArg} is fArg')
 
     fArgName=fArg.__name__
 
     if fArgName in NUMPY_UFUNCS:
 
-        return Call(func=Attribute(value=NUMPY_NAME,
-                                   attr=fArgName,
-                                   ctx=Load()),
-                    keywords=[],
-                    args=callableArgs)
+        return Attribute(value=NUMPY_NAME,
+                         attr=fArg.__name__,
+                         ctx=Load())
 
     #print(f'id is {fArg.__name__}')
     #print(f'moduRanle is {fArg.__module__}')
+    #print(f'{hasattr(builtins,fArg.__name__)} is name in builtins')
 
-    if fArg.__module__ == '__main__':
+    if fArg.__module__ is not None:
 
-        return Call(func=Name(id=fArgName,ctx=Load()),
+        if fArg.__module__ == '__main__':
+
+            #print('is main module')
+
+            return Name(id=fArgName,ctx=Load())
+
+        #print(f'{get_module_alias(fArg)} is get_module_alias(fArg)')
+
+        moduleStrings=fArg.__module__.split('.')
+        
+        moduleStrings.reverse()
+
+        return Attribute(value=module_attribute(moduleStrings),
+                         attr=fArg.__name__,
+                         ctx=Load())
+
+    # Else its a builtin?
+
+    if hasattr(builtins,fArg.__name__):
+
+        return Attrubute(value='builtins',
+                         attr=fArg.__name__,
+                         ctx=Load())
+
+    typ=find_type(fArg.__name__)
+
+    #print(f'type is {typ}')
+
+    if typ:
+
+        return Attribute(value=typ,
+                         attr=fArg.__name__,
+                         ctx=Load())
+    
+    return None
+
+def callable_node_with_args(fArg,callableArgs):
+
+    #print('='*30)
+    #print('callable node with args')
+    #print(f'{fArg} is fArg')
+    #print(f'{[dump(n) for n in callableArgs]} is callableArgs')
+
+    if isinstance(fArg,Call):
+
+        # It stops here!
+        #print('is call')
+
+        return Call(func=fArg,
                     keywords=[],
                     args=callableArgs)
 
-    #print(f'{get_module_alias(fArg)} is get_module_alias(fArg)')
+    if hasattr(fArg,'__name__'):
 
-    moduleStrings=fArg.__module__.split('.')
-    
-    moduleStrings.reverse()
+        fArg=function_node(fArg)
 
-    return Call(func=Attribute(value=module_attribute(moduleStrings),
-                               attr=fArgName,
-                               ctx=Load()),
+    return Call(func=fArg,
                 keywords=[],
                 args=callableArgs)
 
@@ -160,6 +229,7 @@ def callable_node_with_args(fArg,callableArgs):
 def callable_node(fArg,accumLoad=ACCUM_LOAD):
 
     return callable_node_with_args(fArg,[accumLoad])
+
 
 
 #############
@@ -262,7 +332,8 @@ def index_val_node(val):
                      ctx=Load())
     '''
 
-def index_node(fArgs,accum=ACCUM_LOAD):
+
+def index_node(fArgs,accum=ACCUM_LOAD,getFunc=get_call_or_false):
 
     #print('='*30)
     #print('index_node')
@@ -278,12 +349,9 @@ def index_node(fArgs,accum=ACCUM_LOAD):
     #print(f'{indexedObject} is indexedObject')
     #print(f'{dump(accum)} is accum')
     optimizedIndexedObject=optimize_rec(indexedObject,accum) # Should just be a mirror
-    #print(f'{ast.dump(optimizedIndexedObject)} is optimizedIndexedObject')
     optimizedIndices=[optimize_rec(i,accum) if is_f_arg_for_node(i) \
                       else i for i in indices]
-    #print(f'{[dump(n) for n in optimizedIndices]} is optimizedIndices')
     optimizedIndicesNodes=[index_val_node(index) for index in optimizedIndices]
-    #print(f'{[dump(n) for n in optimizedIndicesNodes]} is optimizedIndicesNodes')
 
     if optimizedIndicesNodes \
        and isinstance(optimizedIndicesNodes[0],Slice):
@@ -295,14 +363,17 @@ def index_node(fArgs,accum=ACCUM_LOAD):
                          slice=optimizedIndicesNodes[0],
                          ctx=Load())
 
-    return callable_node_with_args(get_or_false,
+    #print('callable_node_with_args')
+    #print(f'{[dump(n) for n in optimizedIndicesNodes]} is optimizedIndicesNodes')
+    #print(f'{dump(optimizedIndexedObject)} is optimizedIndexedObject')
+
+    return callable_node_with_args(getFunc,
                                    [optimizedIndexedObject]+optimizedIndicesNodes)
 
-    #ci=chain_indices(optimizedIndexedObject,optimizedIndices)
 
-    #print(dump(ci))
+def lambda_index_node(fArgs,accum=ACCUM_LOAD):
 
-    #return ci
+    return index_node(fArgs,accum,get_or_false)
 
     
 ##########
@@ -311,18 +382,6 @@ def index_node(fArgs,accum=ACCUM_LOAD):
 
 import ast
 
-def is_lambda(fArg):
-
-    if has_getitem(fArg):
-
-        return False
-
-    return is_tuple(fArg) \
-        and len(fArg) >= 1 \
-        and not is_mirror(fArg[0]) \
-        and fArg[0] != py_slice \
-        and is_f_arg_for_node(fArg[0])
-
 
 def lambda_node(fArgs,accum=ACCUM_LOAD):
     # First element of lambda must be callable.  Replace with real fArg when you can.
@@ -330,16 +389,19 @@ def lambda_node(fArgs,accum=ACCUM_LOAD):
     #print('lambda_node')
     #print(f'{fArgs} is fArgs')
 
-    if fArgs[0].__name__ == '<lambda>':
+    callableFArg=optimize_rec(fArgs[0],optimizePairs=LAMBDA_OPTIMIZE_PAIRS)
 
-        raise Exception(f'With fArgs[0] {fArgs[0]}, you cannot '
-                        'include Python lambdas in a function defintion when '
-                        'optimizing.  Redefine this using def.')
+    #print(f'{callableFArg} is callableFArg')
+
+    # This has just an "accum" as an args list.  So we need to see if there are
+    # other args.
 
     optimizedLambdaArgs=[optimize_rec(fArg,accum) for fArg in fArgs[1:]]
+    #print(f'{dump(callableFArg)} is callableFArg in lambda node')
+    #print(f'{[dump(n) for n in optimizedLambdaArgs]} is optimizedLambdaArgs')
+    return callable_node_with_args(callableFArg,optimizedLambdaArgs)
 
-    return callable_node_with_args(fArgs[0],optimizedLambdaArgs)
-        
+
 
 ##############################
 # HELPERS FOR MAP AND FILTER #
@@ -456,16 +518,46 @@ def map_dict_or_list_node(fArg,accum=ACCUM_LOAD):
                         'Use separate maps instead.')
     
     return if_list_or_dict(accum,fArg,map_dict_node,map_list_node)
-                 
+
+
+###############
+# REDUCE NODE #
+###############
+
+def reduce_node(fArgs,accumNode=ACCUM_LOAD):
     
+    callableNode=optimize_rec(fArgs[0][0],optimizePairs=LAMBDA_OPTIMIZE_PAIRS)
+
+    if len(fArgs) == 2:
+
+        iterableNode=optimize_rec(fArgs[1],accumNode)
+
+        return callable_node_with_args(reduce_func,
+                                       [callableNode,iterableNode])
+
+    if len(fArgs) == 3:
+
+        startValNode=optimize_rec(fArgs[1],accumNode)
+        iterableNode=optimize_rec(fArgs[2],accumNode)
+
+        return callable_node_with_args(reduce_func_start_val,
+                                       [callableNode,startValNode,iterableNode])
+
+    else:
+
+        raise Exception(f'Badly formed reduce fArg {fArg}')
+
+    return callable_node_with_args(reduce_func,
+                                   [callableNode,startValNode,iterableNode])
+
+
 ##############
 # AND FILTER #
 ##############
 
+'''
 def and_filter_f_args(fArgs):
-    '''
-    This is for when we change and filter from [[fArg ...]] to _f(fArg) 
-    '''
+    #This is for when we change and filter from [[fArg ...]] to _f(fArg) 
     return fArgs[0]
 
 
@@ -513,7 +605,7 @@ def and_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
                            fArg,
                            and_fitler_dict_node,
                            and_filter_list_node)
-
+'''
 
 #############
 # OR FILTER #
@@ -928,7 +1020,7 @@ def parse_literal(fArg):
         return Set( elts=[parse_literal(el) for el in fArg],
                     ctx=Load())
 
-    if is_ast_name(fArg):
+    if is_bookmark(fArg):
 
         return fArg
 
@@ -952,7 +1044,7 @@ def assign_node_to_accum(node,accum=ACCUM_STORE):
 
 OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_mirror,mirror_node),
-                (is_index_arg,index_arg_node),
+                #(is_index_arg,index_arg_node),
                 (is_lambda,lambda_node),
                 (is_slice,slice_node),
                 (is_index,index_node),
@@ -967,17 +1059,35 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_dict_build,dict_build_node),
                 (is_embedded_pype,embedded_pype_node),
                 (is_do,do_node),
+                (is_reduce,reduce_node),
                ]
+LAMBDA_OPTIMIZE_PAIRS=[(is_callable,function_node),
+                       (is_mirror,mirror_node),
+                       (is_lambda,lambda_node),
+                       (is_slice,slice_node),
+                       (is_index,lambda_index_node),
+                       (is_map,map_dict_or_list_node),
+                       (is_bookmark,ast_name_node),
+                       (is_or_filter,or_filter_list_or_dict_node),
+                       (is_switch_dict,switch_dict_node),
+                       (is_dict_assoc,dict_assoc_node),
+                       (is_dict_dissoc,dict_dissoc_node),
+                       (is_dict_merge,dict_merge_node),
+                       (is_list_build,list_build_node),
+                       (is_dict_build,dict_build_node),
+                       (is_embedded_pype,embedded_pype_node),
+                       (is_do,do_node),
+                       ]
 
 
-def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
+def optimize_rec(fArg,accumNode=ACCUM_LOAD,optimizePairs=OPTIMIZE_PAIRS):#,evalType=None):
 
     #print('>'*30)
     #print('optimize_rec')
     #print(f'{fArg} is fArg')
 
     fArg=delam(fArg)
-    optimizers=[opt_f for (evl_f,opt_f) in OPTIMIZE_PAIRS if evl_f(fArg)]
+    optimizers=[opt_f for (evl_f,opt_f) in optimizePairs if evl_f(fArg)]
     evalType=type(fArg)# if evalType is None else evalType
 
     if not optimizers:
@@ -1008,8 +1118,9 @@ def optimize_rec(fArg,accumNode=ACCUM_LOAD):#,evalType=None):
 
             optimizer=optimizer['default']
 
-    #print('returning:')
     #print(optimizer(fArg,accumNode))
+    #print(f'is returned from {optimizer}')
+    #print('>'*30)
 
     return optimizer(fArg,accumNode)
 
@@ -1250,7 +1361,17 @@ def add_main_modules(mod,glbls):
 
         if is_callable(attr):
 
-            modName=attr.__module__
+            #print(f'{attr} is attr')
+
+            if attr.__name__ in NUMPY_UFUNCS:
+
+                #print(f'{attr} is in NUMPY_UFUNCS')
+
+                modName='numpy'
+
+            else:
+
+                modName=attr.__module__
 
         if is_module(attr):
 
@@ -1265,11 +1386,13 @@ def add_main_modules(mod,glbls):
     return glbls
 
 
+
 '''
 Stores all optimized functions.
 '''
 FUNCTION_CACHE={}
 
+import builtins
 #import astpretty
 #import pprint as pp
 
@@ -1287,6 +1410,9 @@ def optimize(pype_func,verbose=False):
     mod=__import__(moduleName)
     glbls[moduleName]=mod
     glbls=add_main_modules(mod,glbls)
+    builtinsMod=__import__('builtins')
+    glbls['builtins']=builtinsMod
+
     '''
     Grab aliases for pype.
     '''
