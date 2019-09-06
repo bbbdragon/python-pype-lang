@@ -319,9 +319,7 @@ This is nothing special, and can be implemented with a reduce.  However, it turn
 * reduces - Taking an iterable, which applies an fArg to update an accumulated value.
 * filters - Taking all elements of an iterable which statisfy the conditions.
 * lambdas - A shorthand for applying a function to several bound variables and accumulator-specific expressions.
-* object lambdas - A shorthand for accessing methods in an object.
 * indexes - Accessing values of list and dictionary accums.
-* xedni's - Accessing values of bound variable lists and dictionaries, with the accums represented in the brackets.
 * swtich dicts - Retruns values based on different conditions applied to the accum.
 * dictionary operations - Building dictionaries from the accum, adding key-value pairs, deleting keys from dictionaries.
 * do expressions - For classes with methods that do not return a value, we can run the code and then return the object.
