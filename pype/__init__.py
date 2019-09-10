@@ -449,27 +449,27 @@ def is_reduce(fArg):
 
 def eval_reduce(accum,fArg):
 
-    print('*'*30)
-    print('eval_reduce')
-    print(f'{fArg} is fArg')
+    #print('*'*30)
+    #print('eval_reduce')
+    #print(f'{fArg} is fArg')
     
     accum=get_args(accum)
 
-    if len(fArg) >= 2:
+    #if len(fArg) >= 2:
 
-        print(f'{fArg[1]} is fArg[1]')
+    #    print(f'{fArg[1]} is fArg[1]')
 
     startVal=eval_or_val(accum,fArg[1]) if len(fArg) >= 2 else None
 
-    print(f'{accum} is accum')
-    print(f'{startVal} is val')
+    #print(f'{accum} is accum')
+    #print(f'{startVal} is val')
 
     if(len(fArg) == 3):
 
         accum=pype(accum,fArg[2])
 
-    print(f'now accum is {accum}')
-    print(f'now startVal is {startVal}')
+    #print(f'now accum is {accum}')
+    #print(f'now startVal is {startVal}')
 
     fArg=fArg[0][0]
     pype_f=lambda acc,x: pype(args(acc,x),fArg)

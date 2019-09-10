@@ -812,6 +812,9 @@ def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
 ##############
 
 def list_build_node(fArgs,accum=ACCUM_LOAD):
+    #print('='*30)
+    #print('list_build_node')
+    #print(f'{fArgs} is fArgs')
 
     fArgs=fArgs[1:]
     optimizedFArgs=[optimize_rec(fArg,accum) for fArg in fArgs]
@@ -932,15 +935,21 @@ def do_node(fArgs,accum=ACCUM_LOAD):
 # NAME BOOKMARKS #
 ##################
 
-class NameBookmark:
+class NameBookmark(PypeVal):
 
     def __init__(self,name):
 
-        self.bookmarkName=name
+        self.name=name
         
+
+    def val(self):
+
+        return NameBookmark(self.name)
+
+
     def __repr__(self):
 
-        return f"NameBookmark('{self.bookmarkName}')"
+        return f"NameBookmark('{self.name}')"
 
 
 
@@ -970,7 +979,7 @@ def ast_name_node(fArg,accumNode):
     #print('ast_name_node')
     #print(f'{fArg} is fArg')
 
-    bookmarkName=fArg.bookmarkName
+    bookmarkName=fArg.name
 
     #print(f'{bookmarkName} is bookmarkName')
     #print(f'{ast.dump(Name(id=bookmarkName,ctx=Load()))} is returned name')
@@ -1480,14 +1489,14 @@ def optimize(pype_func,verbose=False):
         '''
         fArgTrees=optimize_f_args(fArgs,callNameReplacer.accumNode)
 
-        if verbose:
+        #if verbose:
 
-            print('*'*30)
-            print('printing replacedTree')
+        #    print('*'*30)
+        #    print('printing replacedTree')
 
-            for fArgTree in fArgTrees:
+        #    for fArgTree in fArgTrees:
 
-                print(ast.dump(fArgTree))
+        #        print(f'{str(ast.dump(fArgTree))[:100]}')
 
         recompiledReplacerNamespace={}
         tree=parse(src)
