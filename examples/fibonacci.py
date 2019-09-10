@@ -6,6 +6,7 @@ functions, and certain helpers for your PypeVal expressions to make them more re
 '''
 from pype import pype as p
 from pype import _,_p,_0,_1,_l
+from pype import _if
 from pype import _append as _ap
 from pype.helpers import middle
 from pype.vals import lenf,l
@@ -21,7 +22,7 @@ def fib1(n):
     {_ <= 1:_,
      'else':_p({'fib1':(fib,_-1),
                 'fib2':(fib,_-2)},
-                _['fib1']+_['fib2'])}
+                _.fib1+_.fib2)}
 
     This is a switch dict, as we see because it has the 'else' key.  
 
@@ -31,12 +32,12 @@ def fib1(n):
 
     'else':_p({'fib1':(fib,_-1),
                'fib2':(fib,_-2)},
-               _['fib1']+_['fib2'])}
+               _.fib1+_.fib2)}
 
     _p means we are building an embedded pype.  The first dictionary assigns fib(n-1) to
     'fib1', and the second assigns fib(n-2) to 'fib2'.  
 
-    _['fib1']+_['fib2']
+    _.fib1+_.fib2
 
     This adds the two values in the previous dict build.  
     '''
@@ -44,7 +45,7 @@ def fib1(n):
               {_ <= 1:_,
                'else':_p({'fib1':(fib1,_-1),
                           'fib2':(fib1,_-2)},
-                         _['fib1']+_['fib2'])}
+                         _.fib1+_.fib2)}
             )
 
 
@@ -91,6 +92,18 @@ def fib2(n):
                'else':l(fib2,_-1) + (fib2,_-2)})
 
 
+def fib3(n):
+    '''
+    Finally, we have the most concise implementation.  _if(cond,expr) returns a switch
+    dict:
+
+    {cond:expr,
+     'else':_}
+    '''
+    return p( n,
+              _if(_ > 1,l(fib2,_-1) + (fib2,_-2)))
+
+
 if __name__=='__main__':
             
     print(f'Dict Build Fibonacci')
@@ -104,4 +117,10 @@ if __name__=='__main__':
     for i in range(10):
 
         print(f'Fibonacci of {i} is {fib2(i)}')
+
+    print(f'Pure Fibonacci (Concise)')
+
+    for i in range(10):
+
+        print(f'Fibonacci of {i} is {fib3(i)}')
 
