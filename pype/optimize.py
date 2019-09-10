@@ -1370,9 +1370,7 @@ def add_main_modules(mod,glbls):
 
         if is_callable(attr):
 
-            #print(f'{attr} is attr')
-
-            if attr.__name__ in NUMPY_UFUNCS:
+            if hasattr(attr,'name') and attr.__name__ in NUMPY_UFUNCS:
 
                 #print(f'{attr} is in NUMPY_UFUNCS')
 
@@ -1393,7 +1391,6 @@ def add_main_modules(mod,glbls):
             glbls[modName]=__import__(modName)
 
     return glbls
-
 
 
 '''
