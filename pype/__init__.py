@@ -15,7 +15,7 @@ from inspect import Signature
 import types
 #import __builtins__
 
-__version__='1.0.3'
+__version__='1.0.4'
 
 #BUILTINS=set(__builtins.__dict__.values())
 
