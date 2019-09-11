@@ -156,6 +156,7 @@ def qs3_opt(ls):
               _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
             )
 
+
 if __name__=='__main__':
             
     ls=[86,23,1,4,-1,2,5]
