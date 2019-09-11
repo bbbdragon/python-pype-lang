@@ -153,7 +153,7 @@ def qs3_opt(ls):
     pivot=middle(ls)
 
     return p( ls,
-              _if(len,l(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+              _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
             )
 
 
