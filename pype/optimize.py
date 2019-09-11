@@ -1355,9 +1355,7 @@ def add_main_modules(mod,glbls):
 
         if is_callable(attr):
 
-            if hasattr(attr,'name') and attr.__name__ in NUMPY_UFUNCS:
-
-                #print(f'{attr} is in NUMPY_UFUNCS')
+            if hasattr(attr,'__name__') and attr.__name__ in NUMPY_UFUNCS:
 
                 modName='numpy'
 
