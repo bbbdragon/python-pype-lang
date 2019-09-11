@@ -11,6 +11,7 @@ from pype import _append as _ap
 from pype.helpers import middle
 from pype.vals import lenf,l
 from pype.vals import PypeVal as v
+from pype.optimize import optimize
 
 def fib1(n):
     '''
@@ -104,6 +105,23 @@ def fib3(n):
               _if(_ > 1,l(fib2,_-1) + (fib2,_-2)))
 
 
+@optimize
+def fib3_opt(n):
+    '''
+    Finally, we have the most concise implementation.  _if(cond,expr) returns a switch
+    dict:
+
+    {cond:expr,
+     'else':_}
+
+    However, in this case, notice that we do not use a PypeVal epression l(fib2,-1).
+    This is because the optimizer automatically encloses the first value of a binary
+    operator into a PypeVal, which makes the code much cleaner.  
+    '''
+    return p( n,
+              _if(_ > 1,(fib2,_-1) + (fib2,_-2)))
+
+
 if __name__=='__main__':
             
     print(f'Dict Build Fibonacci')
@@ -123,4 +141,10 @@ if __name__=='__main__':
     for i in range(10):
 
         print(f'Fibonacci of {i} is {fib3(i)}')
+
+    print(f'Pure Fibonacci (Concise, Optimized)')
+
+    for i in range(10):
+
+        print(f'Fibonacci of {i} is {fib3_opt(i)}')
 
