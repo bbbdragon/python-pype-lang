@@ -281,6 +281,13 @@ def flatten_list(ls):
     return list(itertools.chain.from_iterable(ls))
 
 
+def flatten_tuple(ls):
+
+    tup=tuple([(el,) if not isinstance(el,tuple) else el for el in ls])
+
+    return tuple(itertools.chain.from_iterable(tup))
+
+
 frist=lambda st,n: st[:n]
 
 

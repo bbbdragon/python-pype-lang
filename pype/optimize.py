@@ -16,7 +16,7 @@ from pype import pype as p
 from pype import pype as pype_f
 from pype import LIST_ARGS
 from itertools import groupby
-from pype.vals import delam,hash_rec
+from pype.vals import delam,hash_rec,is_bookmark,NameBookmark
 from pype import INDEX_ARG_DICT
 from functools import reduce
 from inspect import signature
@@ -128,7 +128,6 @@ def get_last_attribute(fArg):
 
     if isinstance(fArg,Attribute):
 
-        print(f'{dump(fArg)} is attribute')
         return fArg.attr
 
 NUMPY_NAME=Name(id='np',ctx=Load())
@@ -551,65 +550,9 @@ def reduce_node(fArgs,accumNode=ACCUM_LOAD):
                                    [callableNode,startValNode,iterableNode])
 
 
-##############
-# AND FILTER #
-##############
-
-'''
-def and_filter_f_args(fArgs):
-    #This is for when we change and filter from [[fArg ...]] to _f(fArg) 
-    return fArgs[0]
-
-
-def all_node(nodes):
-
-    if len(nodes) < 2:
-
-        return nodes
-
-    return BoolOp(op=And(),
-                  values=nodes)
-
-
-def and_filter_list_node(fArgs,
-                         accum=ACCUM_LOAD,
-                         loadedListElement=LOADED_LIST_ELEMENT,
-                         storedListElement=STORED_LIST_ELEMENT):
-
-    fArgs=and_filter_f_args(fArgs)
-    ifAllNode=all_node([optimize_rec(fArg,loadedListElement) for fArg in fArgs])
-
-    #print('printing and filter list node')
-    #print(ifAllNode)
-
-    listComp=list_comp(accum,loadedListElement,storedListElement,ifAllNode)
-
-    #astpretty.pprint(ifAllNode)
-
-    return listComp
-
-
-def and_filter_dict_node(fArgs,
-                         accum=ACCUM_LOAD,
-                         loadedDictValue=LOADED_DICT_VALUE):
-
-    fArgs=and_filter_f_args(fArgs)
-    ifAllNode=all_node([optimize_rec(fArg,loadedDictValue) for fArg in fArgs])
-
-    return dict_comp(accum,loadedDictValue,ifAllNode)
-    
-
-def and_filter_list_or_dict_node(fArgs,accum=ACCUM_LOAD):
-
-    return if_list_or_dict(accum,
-                           fArg,
-                           and_fitler_dict_node,
-                           and_filter_list_node)
-'''
-
-#############
-# OR FILTER #
-#############
+##########
+# FILTER #
+##########
 
 def any_node(nodes):
 
@@ -812,9 +755,6 @@ def dict_dissoc_node(fArgs,accum=ACCUM_LOAD):
 ##############
 
 def list_build_node(fArgs,accum=ACCUM_LOAD):
-    #print('='*30)
-    #print('list_build_node')
-    #print(f'{fArgs} is fArgs')
 
     fArgs=fArgs[1:]
     optimizedFArgs=[optimize_rec(fArg,accum) for fArg in fArgs]
@@ -828,11 +768,6 @@ def list_build_node(fArgs,accum=ACCUM_LOAD):
 ##############
 
 def dict_build_node(fArg,accum=ACCUM_LOAD):
-
-    #print('&'*30)
-    #print('dict_build_node')
-    #pp.pprint(fArg)
-    #print([optimize_rec(v,accum) for v in list(fArg.values())])
 
     if is_explicit_dict_build(fArg):
 
@@ -854,11 +789,6 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
     keys=[optimize_rec(k,accum) for k in keys]
     vals=[optimize_rec(v,accum) for v in vals]
 
-    #print('keys:')
-    #print([ast.dump(k) for k in keys])
-    #print('values:')
-    #print([v for v in vals])
-
     return Dict(keys=keys,values=vals,ctx=Load())
 
 
@@ -878,23 +808,10 @@ def embedded_pype_chain(fArgs,accum):
 def embedded_pype_node(fArgs,accum=ACCUM_LOAD):
 
     fArgs=fArgs[1:]
-    
-    #print('&'*30)
-    #print('embedded_pype_node')
-    #print(fArgs)
-    #pp.pprint(fArg)
-    #print([optimize_rec(v,accum) for v in list(fArg.values())])
 
     fArgs.reverse()
 
     pypeChain=embedded_pype_chain(fArgs,accum)
-
-    #astpretty.pprint(pypeChain)
-
-    #print('keys:')
-    #print([ast.dump(k) for k in keys])
-    #print('values:')
-    #print([v for v in vals])
 
     return pypeChain
 
@@ -928,61 +845,11 @@ def do_node(fArgs,accum=ACCUM_LOAD):
     #print(f'{callNode} is callNode')
 
     return callNode
-
-
-
-##################
-# NAME BOOKMARKS #
-##################
-
-class NameBookmark(PypeVal):
-
-    def __init__(self,name):
-
-        self.name=name
-        
-
-    def val(self):
-
-        return NameBookmark(self.name)
-
-
-    def __repr__(self):
-
-        return f"NameBookmark('{self.name}')"
-
-
-
-def is_bookmark(fArg):
-    
-    #print('='*30)
-    #print('is_bookmark')
-    #print(f'{fArg} is fArg')
-    #print(f'{type(fArg)} is type fArg')
-    #print(f'id(NameBookmark) is {id(NameBookmark)}')
-    #print(f'id(fArg.__class__) is {id(fArg.__class__)}')
-    #print(f'{NameBookmark} is NameBookmark')
-    #print(f'fArg.__class__ is {fArg.__class__}')
-    #print(f'equality is {"NameBookmark" in str(fArg.__class__)}')
-    #print(f'{isinstance(fArg,NameBookmark)} is isinstance')
-    #print(f'{hasattr(fArg,"bookmarkName")} is hasattr')
-
-    # I have no idea why this doesn't evaluate as True
-    #return isinstance(fArg,NameBookmark) 
-    # fix fix fix
-
-    return "NameBookmark" in str(fArg.__class__)
       
 
 def ast_name_node(fArg,accumNode):
-    #print('='*30)
-    #print('ast_name_node')
-    #print(f'{fArg} is fArg')
 
     bookmarkName=fArg.name
-
-    #print(f'{bookmarkName} is bookmarkName')
-    #print(f'{ast.dump(Name(id=bookmarkName,ctx=Load()))} is returned name')
 
     return Name(id=bookmarkName,ctx=Load())
 
@@ -992,9 +859,6 @@ def ast_name_node(fArg,accumNode):
 ############
 
 def parse_literal(fArg):
-
-    #print('='*30)
-    #print('parse_literal')
     
     if fArg is None:
 
@@ -1184,6 +1048,76 @@ def aliases_for_pype(glbls):
 # AST TRANSFORMATIONS #
 #######################
 
+PYPE_VALS_NODE=Attribute(value=Name(id='pype',ctx=Load()),
+                         attr='vals',
+                         ctx=Load())
+
+def is_pype_return(node,aliases):
+
+    if is_list(node):
+
+        node=node[-1]
+
+    return isinstance(node,Return) \
+        and isinstance(node.value,Call)\
+        and node.value.func.id in aliases
+
+
+def generic_pype_return(accum,fArgs):
+
+    return Return(Call(func=Attribute(value=Name(id='pype',ctx=Load()),
+                                      attr='pype',
+                                      ctx=Load()),
+                       args=[accum]+fArgs,
+                       keywords=[]))
+
+
+class NoReturnReplacer(NodeVisitor):
+    '''
+    This handles the case where an optimized function does not return a pype call, but
+    just has a tuple of fArgs at the end of the function. The implicit assumption is 
+    that the function body can only have assignments, ending with either an fArg or
+    a tuple of fArgs.
+    '''
+    def visit_FunctionDef(self,node):
+
+        print(f'In functionDef')
+        print(f'{ast.dump(node)} is node')
+
+        args=node.args.args
+
+        if args:
+
+            print(f'{args} is args')
+
+            headArg=Name(id=args[0].arg,ctx=Load())
+
+            print(f'{headArg} is headArg')
+
+            body=node.body
+            lastNode=body[-1]
+            
+            if not isinstance(lastNode,Return):
+                
+                if isinstance(lastNode,Tuple):
+                
+                    fArgs=[lastNode]
+
+                else:
+
+                    fArgs=[fArg for fArg in body if not isinstance(fArg,Assign)]
+
+                returnNode=generic_pype_return(headArg,fArgs)
+                node.body[-1]=returnNode
+        
+        node.decorator_list=[]
+        node=fix_missing_locations(node)
+            
+        print(f'{ast.dump(node)} is node')
+
+        self.generic_visit(node)
+
+
 class NameReplacer(NodeTransformer):
     '''
     This finds any name and converts it into a NameBookmark object, so when the fArgs
@@ -1205,7 +1139,7 @@ class NameReplacer(NodeTransformer):
             #print(f'{str(self.nameSpace)[:20]} is namespace')
 
             name=node.id
-            newNode=Call(func=Attribute(value=Name(id='optimize',ctx=Load()),
+            newNode=Call(func=Attribute(value=PYPE_VALS_NODE,
                                         attr='NameBookmark',
                                         ctx=Load()),
                          args=[Str(s=name)], 
@@ -1219,16 +1153,43 @@ class NameReplacer(NodeTransformer):
         return newNode
 
 
+def is_name_bookmark(node):
 
-def is_pype_return(node,aliases):
+    return isinstance(node,Call) \
+        and isinstance(node.func,Attribute) \
+        and node.func.attr=='NameBookmark'
 
-    if is_list(node):
 
-        node=node[-1]
+class PypeValReplacer(NodeVisitor):
+    '''
+    This finds any instance of a binop in the parse tree, and replaces the first 
+    element with a PypeVal for that element.  This allows us to get rid of explicit
+    PypeVal declarations in optimized code, so instead of v(len)+1 you can now just
+    do len + 1, but again, only in optimized code.
 
-    return isinstance(node,Return) \
-        and isinstance(node.value,Call)\
-        and node.value.func.id in aliases
+    Because of how delam works, this does not create a problem for the NameBookmarks
+    since PypeVals are delam-ed recursively, so v(v(v(1))) evaluates as 1, and
+    v(NameBookmark("a")) evaluates as NameBookmark("a").
+    '''
+    def visit_BinOp(self,node):
+
+        leftNode=node.left
+        rightNode=node.right
+
+        if not (is_name_bookmark(leftNode) and is_name_bookmark(rightNode)):
+        
+            newLeftNode=Call(func=Attribute(value=PYPE_VALS_NODE,
+                                            attr='PypeVal',
+                                            ctx=Load()),
+                             args=[leftNode], 
+                             keywords=[])
+            node.left=newLeftNode
+            node.decorator_list=[]
+            node=fix_missing_locations(node)
+
+        #print(f'{ast.dump(node)} is node')
+
+        self.generic_visit(node)
 
 
 def pype_return_f_args(accum,*fArgs):
@@ -1361,6 +1322,10 @@ class FArgReplacer(NodeVisitor):
         self.generic_visit(node)
 
 
+############
+# OPTIMIZE #
+############
+
 def add_main_modules(mod,glbls):
 
     for name in dir(mod):
@@ -1393,6 +1358,23 @@ def add_main_modules(mod,glbls):
     return glbls
 
 
+def apply_tree_transformation(tree,replacer,originalFuncName,glbls):
+    
+    replacerNamespace={}
+    
+    replacer.visit(tree)
+    '''
+    Now, we recompile the function into the recompiledReplacedNamespace, and
+    extract the fArgs.
+    '''
+    exec(compile(tree,
+                 filename='<ast>',
+                 mode='exec'),
+         glbls,
+         replacerNamespace)
+
+    return tree,replacerNamespace[originalFuncName]
+    
 '''
 Stores all optimized functions.
 '''
@@ -1416,8 +1398,9 @@ def optimize(pype_func,verbose=False):
     mod=__import__(moduleName)
     glbls[moduleName]=mod
     glbls=add_main_modules(mod,glbls)
-    builtinsMod=__import__('builtins')
-    glbls['builtins']=builtinsMod
+    glbls['builtins']=__import__('builtins')
+    glbls['_operator']=__import__('_operator')
+    glbls['np']=__import__('numpy')
 
     '''
     Grab aliases for pype.
@@ -1447,32 +1430,53 @@ def optimize(pype_func,verbose=False):
             print('*'*30)
 
         '''
-        Now, we want to replace any name, either in the global variables or the
-        function body, that appears in the function body with NameBookmark.
+        Now, we check if the function has 1 argument and no return, in which
+        case we build a return around the argument.  
         '''
-        callNameReplacer=CallNameReplacer(aliases)
-
-        callNameReplacer.visit(tree)
+        '''
+        tree,recompiled_pype_func=apply_tree_transformation(tree,
+                                                            NoReturnReplacer(),
+                                                            originalFuncName,
+                                                            glbls)
 
         if verbose:
 
             print('*'*30)
-            print('after callNameReplacer tree is')
+            print('after no return replacer tree is')
             astpretty.pprint(tree)
-
         '''
-        Now, we recompile the function into the recompiledReplacedNamespace, and
+        '''
+        Now, we want to replace any name, either in the global variables or the
+        function body, that appears in the function body with NameBookmark.
+
+        We recompile the function into the recompiledReplacedNamespace, and
         extract the fArgs.
         '''
-        recompiledReplacerNamespace={}
+        callNameReplacer=CallNameReplacer(aliases)
+        tree,recompiled_pype_func=apply_tree_transformation(tree,
+                                                            callNameReplacer,
+                                                            originalFuncName,
+                                                            glbls)
+        accumNode=callNameReplacer.accumNode
 
-        exec(compile(tree,
-                     filename='<ast>',
-                     mode='exec'),
-             glbls,
-             recompiledReplacerNamespace)
+        if verbose:
 
-        recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
+            print('*'*30)
+            print('after call name replacer tree is')
+            astpretty.pprint(tree)
+
+        tree,recompiled_pype_func=apply_tree_transformation(tree,
+                                                            PypeValReplacer(),
+                                                            originalFuncName,
+                                                            glbls,
+                                                           )
+
+        if verbose:
+
+            print('*'*30)
+            print('after operator replacer tree is')
+            astpretty.pprint(tree)
+        
         fArgs=recompiled_pype_func(*args)
 
         if verbose:
@@ -1484,7 +1488,7 @@ def optimize(pype_func,verbose=False):
         '''
         Now, we run the optimizations and convert the fArgs into a list of trees.
         '''
-        fArgTrees=optimize_f_args(fArgs,callNameReplacer.accumNode)
+        fArgTrees=optimize_f_args(fArgs,accumNode)
 
         #if verbose:
 

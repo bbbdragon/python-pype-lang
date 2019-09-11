@@ -30,6 +30,26 @@ def hash_rec(el):
     return hash(el)
 
 
+from pype.helpers import flatten_tuple
+
+def get_val_rec(pVal):
+
+    if isinstance(pVal,Getter):
+
+        return pVal
+
+    elif isinstance(pVal,PypeVal):
+
+        return get_val_rec(pVal._tup_)
+
+    if isinstance(pVal,tuple):
+
+        return flatten_tuple([get_val_rec(v) for v in pVal])
+
+    return pVal
+
+
+
 class LamTup(object):
     '''
     This takes tuple expressions and overrides operators for them.
@@ -40,6 +60,8 @@ class LamTup(object):
 
             raise Exception('LamTup.__init__: tup needs to have one '
                             'or more values')
+
+        #tup=get_val_rec(tup)
 
         self._tup_=tup
 
@@ -227,6 +249,9 @@ class LamTup(object):
 
         return LamTup(contains,self.val(),other)
 
+
+
+
 class PypeVal(LamTup):
 
     def __init__(self,*val):
@@ -262,11 +287,16 @@ is_pype_val=lambda x:isinstance(x,PypeVal)
 is_getter=lambda x:isinstance(x,Getter)
 is_lam_tup=lambda x: isinstance(x,LamTup) and not is_pype_val(x) and not is_getter(x)
 
+def is_bookmark(fArg):
+    
+    return "NameBookmark" in str(fArg.__class__)
+
+
 def delam(expr):
 
     #print('*'*30)
     #print('delam')
-    #print('{} is expr'.format(expr))
+    #print(f'{expr} is expr')
 
     if is_lam_tup(expr):
 
@@ -276,7 +306,7 @@ def delam(expr):
 
     if is_dict(expr):
 
-        #print('{} is dict'.format(expr))
+        #print(f'{expr} is dict')
 
         # This allows lam tups to appear as keys, but then be evaluated as
         # lambdas in switch dicts and dict builds.
@@ -292,6 +322,18 @@ def delam(expr):
         #print('is tuple')
 
         return tuple([delam(el) for el in expr])
+
+    if is_getter(expr):
+
+        return expr
+
+    if is_bookmark(expr):
+
+        return expr
+
+    if is_pype_val(expr):
+
+        return delam(expr.val())
 
     '''
     if is_set(expr):
@@ -321,6 +363,27 @@ class Quote(object):
     def __str__(self):
 
         return 'Q('+str(self.v)+')'
+
+
+##################
+# NAME BOOKMARKS #
+##################
+
+class NameBookmark(PypeVal):
+
+    def __init__(self,name):
+
+        self.name=name
+        
+
+    def val(self):
+
+        return NameBookmark(self.name)
+
+
+    def __repr__(self):
+
+        return f"NameBookmark('{self.name}')"
 
 
 def l(*args):
