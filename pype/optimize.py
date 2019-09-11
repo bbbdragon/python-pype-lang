@@ -40,6 +40,7 @@ import types
 import builtins
 
 NUMPY_UFUNCS=set(dir(np))
+OPERATOR_FUNCS=set(dir(_operator))
 ACCUM_STORE=Name(id='accum',ctx=Store())
 ACCUM_LOAD=Name(id='accum',ctx=Load())
 RETURN_ACCUM=[Return(value=ACCUM_LOAD)]
@@ -131,7 +132,8 @@ def get_last_attribute(fArg):
         return fArg.attr
 
 NUMPY_NAME=Name(id='np',ctx=Load())
-    
+OPERATOR_NAME=Name(id='_operator',ctx=Load())
+
 def find_type(name):
 
     for typ,typName in MAJOR_TYPES.items():
@@ -150,6 +152,12 @@ def function_node(fArg,accum=ACCUM_LOAD):
     #print(f'{fArg} is fArg')
 
     fArgName=fArg.__name__
+
+    if fArgName in OPERATOR_FUNCS:
+
+        return Attribute(value=OPERATOR_NAME,
+                         attr=fArg.__name__,
+                         ctx=Load())
 
     if fArgName in NUMPY_UFUNCS:
 
@@ -500,9 +508,17 @@ def map_dict_node(fArg,
     return dict_comp(accum,mapValue)
 
 
+PYPE_HELPERS_NODE=Attribute(value=Name(id='pype',ctx=Load()),
+                            attr='helpers',
+                            ctx=Load())
+IS_DICT_NODE=Attribute(value=PYPE_HELPERS_NODE,
+                       attr='is_dict',
+                       ctx=Load())
+
 def if_list_or_dict(accum,fArg,dict_func,list_func):
 
-    return IfExp(test=Call(func=Name(id='is_dict',ctx=Load()),
+
+    return IfExp(test=Call(func=IS_DICT_NODE,
                            args=[accum],
                            keywords=[]),
                  body=dict_func(fArg,accum),
@@ -892,6 +908,10 @@ def parse_literal(fArg):
 
         return Set( elts=[parse_literal(el) for el in fArg],
                     ctx=Load())
+
+    if isinstance(fArg,NameBookmark):
+
+        return Name(id=fArg.name,ctx=Load())
 
     if is_bookmark(fArg):
 

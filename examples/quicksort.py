@@ -153,7 +153,7 @@ def qs3_opt(ls):
     pivot=middle(ls)
 
     return p( ls,
-              _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+              _if(len,l(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
             )
 
 
@@ -166,4 +166,6 @@ if __name__=='__main__':
     print(f'The sorted list is for concise recursive quicksort is {qs2(ls)}') 
     print('The sorted list is for concise recursive quicksort with macros '
           f'is {qs3(ls)}') 
+    print('The sorted list is for concise recursive quicksort with macros '
+          f'and optimization is {qs3_opt(ls)}') 
 
