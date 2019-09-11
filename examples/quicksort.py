@@ -153,9 +153,19 @@ def qs3_opt(ls):
     pivot=middle(ls)
 
     return p( ls,
-              _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+              _if(len,(qs3_opt,{_ < pivot}) + [pivot] + (qs3_opt,{_ > pivot}))
             )
 
+'''
+@optimize
+def qs3_opt(ls):
+
+    pivot=middle(ls)
+
+    return p( ls,
+              _if(len,(qs3_opt,{_ < pivot}) + [pivot] + (qs3_opt,{_ > pivot}))
+            )
+'''
 
 if __name__=='__main__':
             

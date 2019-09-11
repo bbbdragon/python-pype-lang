@@ -119,8 +119,16 @@ def fib3_opt(n):
     operator into a PypeVal, which makes the code much cleaner.  
     '''
     return p( n,
-              _if(_ > 1,(fib2,_-1) + (fib2,_-2)))
+              _if(_ > 1,(fib3_opt,_-1) + (fib3_opt,_-2)))
 
+
+'''
+@optimize
+def fib3_opt(n):
+
+    return p( n,
+              _if(_ > 1,(fib3_opt,_-1) + (fib3_opt,_-2)))
+'''
 
 if __name__=='__main__':
             
