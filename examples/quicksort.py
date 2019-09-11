@@ -7,6 +7,7 @@ from pype import _
 from pype import _concat as _c
 from pype.helpers import middle
 from pype.vals import lenf,l
+from pype.optimize import optimize
 
 def qs1(ls):
     '''
@@ -138,6 +139,21 @@ def qs3(ls):
 
     return p( ls,
               _if(len,l(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+            )
+
+
+@optimize
+def qs3_opt(ls):
+    '''
+    This is an implementation of qs3, but with one small difference - notice that we
+    do not explicitly generate a (qs3,{_ < pivot}).  This is because the optimizer
+    automatically handles this case by inserting a PypeVal into the syntax tree when
+    it finds a binary operator.  
+    '''
+    pivot=middle(ls)
+
+    return p( ls,
+              _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
             )
 
 if __name__=='__main__':
