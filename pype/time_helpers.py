@@ -1,5 +1,6 @@
 import datetime as dt
 from copy import deepcopy
+from dateutil.parser import parse
 
 BEGIN=dt.datetime(year=1970,month=1,day=1)
 END=dt.datetime(year=2030,month=1,day=1)
@@ -111,3 +112,18 @@ WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
 def weekday_int_to_string(i):
 
     return WEEKDAYS[i]
+
+
+def today_date_string():
+
+    return date_string(dt.datetime.now())
+
+
+def increment_weekday(weekdayInt):
+
+    return (weekdayInt + 1) % 7
+
+
+def increment_date_string(dateString,days=1):
+
+    return date_string(parse(dateString)+dt.timedelta(days=int(days)))
