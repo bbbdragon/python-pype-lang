@@ -567,27 +567,16 @@ pype(ls,_[lenf - 1]) <=> ls[len(ls) - 1] <=> ls[4 - 1] <=> ls[3]
 ```
 ## Xednis
 
-`(<sequence|mapping>,[expression|fArg],+)`
+`<sequence|mapping>.[<expression|fArg>+]`
 
 "xedni" is the word "index" spelled backwards.  The first value in the expression is a sequence or mapping, and the remaining `[expression|fArg]` expressions access an element from that value.  Multiple `[expression|fArg]` expressions apply consecutively:
 ```
 ls=[1,2,3,4]
-pype([0,3],[(ls,[_])]) <=> [ls[0],ls[3]] <=> [1,4]
-ls=[[1,2,3],[4,5,6]]
-pype([0,1],[(ls,[_,1]]) <=> [ls[0][1],ls[1][1]] <=> [2,5]
-```
-By casting the sequence or mapping in a PypeVal object, we can use the overridden `__getitem__` operator:
-```
-from pype.vals import PypeVal
-
-ls=[[1,2,3],[4,5,6]]
 lsV=PypeVal(ls)
-
-lsV[_] <=> (ls,[_])
-
-pype([0,1],[lsV[_,1]]) <=> [2,5]
+pype([0,3],[lsV[_]]) <=> [ls[0],ls[3]] <=> [1,4]
+ls=[[1,2,3],[4,5,6]]
+pype([0,1],[lsV[_,1]]) <=> [ls[0][1],ls[1][1]] <=> [2,5]
 ```
-
 ## Switch Dicts
 
 `{<hashFArg|expression>:<fArg|expression>,+,'else':<fArg|expression>}`
@@ -614,7 +603,14 @@ We evaluate every fArg key in order, so only the value for the last evaluated fA
 ```
 pype(3, {_ > 2: "greater than two", _ < 4 : "less than four", "else" : _}) <=> "less than four"
 ```
-
+### Switch Dict Macros
+There are several functions which return a switch dict that follows a given, commonly used pattern:
+```
+_if(cond,expr) => {cond:expr,'else':_}
+_iff(cond,expr) => {cond:expr,'else':False}
+_ifp(cond,*fArgs) => {cond:_p(*fArgs),'else':_}
+_iffp(cond,*fArgs) => {cond:_p(*fArgs),'else':False}
+```
 ## Do expression
 
 `_do(objectCallable)`
@@ -877,19 +873,48 @@ As of today, optimized pype only covers a subset of fArg types:
 * index args
 * filters
 * lambdas
-* indexes
+* indices
 * maps
 * reduces
 * switch dicts
 * dict assocs
 * dict dissocs
 * dict merges
-* list_builds
+* list builds
+* dict builds
 * do expressions
 * embedded pype
 
 The optimizer is a work in progress, so it is best to first ensure your program runs in interpreted pype, and apply the `optimize` decorator to each function, testing along the way.
 
+One nice thing about the optimizer is that you don't have to explicitly declare PypeVals when you want to override operators.  For example, the function:
+```
+import PypeVal as v
+
+def double_len(ls):
+
+  return p( ls,
+            v(len)*2) 
+```
+can be written as:
+```
+@optimize
+def double_len(ls):
+
+  return p( ls,
+            len*2) 
+```
+You will find examples of how this can de-clutter your code in `examples/quicksort.py` and `examples/fibonnaci.py` - for example, one implementation of quicksort contains the following code:
+```
+@optimize
+def qs3_opt(ls):
+    pivot=middle(ls)
+
+    return p( ls,
+              _if(len,(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot}))
+            )
+```
+`(qs3,{_ < pivot}) + [pivot] + (qs3,{_ > pivot})` contains no explicit PypeVal declarations.  We can can see that this gives us an incredible amount of expressive power.
 # Tips for Good Pype
 
 ## Style
