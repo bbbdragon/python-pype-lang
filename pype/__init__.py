@@ -13,9 +13,11 @@ import sys
 import pprint as pp
 from inspect import Signature
 import types
+from pype.vals import NameBookmark
+
 #import __builtins__
 
-__version__='1.0.9'
+__version__='1.1.0'
 
 #BUILTINS=set(__builtins.__dict__.values())
 
@@ -289,6 +291,7 @@ def eval_index(accum,fArgs):
     #print('eval_index')
     accum=accum[ARGS][0]
     #print(f'{accum} is accum before')
+    #print(f'{fArgs} is fArgs before')
     # First, let's see what the accum really is ...
     # Notice this works for recursion as well.
     #print(f'{fArgs[0]} is fArgs[0]')
@@ -347,10 +350,13 @@ def eval_index(accum,fArgs):
 
     # No? Then let's see if it's an attribute of an object.
 
+    #print('not dict, number indexable, or ndarray')
     if is_string(index) and hasattr(accum,index):
 
+        #print('has attribute')
         accum=getattr(accum,index)
-
+        #print(f'{is_callable(accum)} is is_callable')
+        #print(f'{accum} is accum after getting attribute')
         # Now here's a problem - we need to deal with the case that the 
         # retrieved object is callable.  We're just going to take care of it 
         # in the main loop.
@@ -373,11 +379,15 @@ def is_callable(fArg):
 
 def eval_callable(accum,fArg):
 
-    #print(f'{fArg.__module__} is module of {fArg}')
+    #print('='*30)
 
     try:
 
+        #print(f'taking signature of {fArg}')
+
         argNum=len(Signature.from_callable(fArg)._parameters)
+
+        #print(f'{argNum} is argNum')
 
         if argNum == 0:
 
@@ -387,7 +397,12 @@ def eval_callable(accum,fArg):
 
         pass
 
-    return args(fArg(*accum[ARGS]))
+    return args(fArg(accum[ARGS][0]))
+
+
+def eval_lambda_callable(accum,fArg):
+
+    return args(fArg)
 
 
 #######
@@ -561,16 +576,19 @@ def _iffp(*fArgs):
 # LAMBDA #
 ##########
 
+
 def is_lambda(fArg):
 
     return is_tuple(fArg) \
         and len(fArg) > 1 \
         and not is_getitem(fArg[1]) \
-        and is_f_arg(fArg[0])
+        and (is_f_arg(fArg[0]) or isinstance(fArg[0],NameBookmark))
 
 
 def eval_lambda(accum,fArgs):
-
+    #print('*'*30)
+    #print('eval_lambda')
+    #print(f'{fArgs} is fArgs')
     firstAccum=accum
     accum=accum[ARGS][0]
     calledFArg=fArgs[0]
@@ -592,9 +610,11 @@ def eval_lambda(accum,fArgs):
         raise Exception(f'First fArg {str(calledFArg)[:100]} is not callable '
                         'in a lambda expression.')
 
-    lambdaArgs=args(*[eval_or_val(accum,f) for f in fArgs[1:]])
+    lambdaArgs=[eval_or_val(accum,f) for f in fArgs[1:]]
 
-    return args(pype(lambdaArgs,calledFArg))                      
+    #print(f'{str(lambdaArgs[1]o)[:100]} is lambdaArgs')
+
+    return args(calledFArg(*lambdaArgs))                      
 
 
 def eval_lambda_old(accum,fArgs):
@@ -1273,13 +1293,16 @@ def is_quote(fArg):
 
 def eval_quote(accum,fArg):
 
-    #print('eval_quote')
-    #print('{} is accum'.format(accum))
-    #print('{} is fArg'.format(fArg))
-    #print('{} is quote'.format(is_quote(fArg)))
-    #print('{} is fArg.val()'.format(fArg.val()))
+    print('eval_quote')
+    accum=accum[ARGS][0]
+    print('{} is accum'.format(accum))
+    print('{} is fArg'.format(fArg))
+    print('{} is quote'.format(is_quote(fArg)))
+    print('{} is fArg.val()'.format(fArg.val()))
 
-    return args(fArg.val())
+    val=fArg.val()
+
+    return args(val)
 
 
 ######
@@ -1319,6 +1342,27 @@ def _do(fArg):
 # MAIN #
 ########
 
+# These are for lambdas in the first position.
+QUOTE_PAIRS=[(is_mirror,eval_mirror),
+             (is_map,eval_map),
+             (is_callable,eval_callable),
+             (is_reduce,eval_reduce),
+             (is_or_filter,eval_or_filter),
+             (is_switch_dict,eval_switch_dict),
+             (is_lambda,eval_lambda),
+             (is_index,eval_index),
+             (is_dict_build,eval_dict_build),
+             (is_dict_assoc,eval_dict_assoc),
+             (is_dict_merge,eval_dict_merge),
+             (is_dict_dissoc,eval_dict_dissoc),
+             (is_list_build,eval_list_build),
+             (is_list_append,eval_list_append),
+             (is_list_concat,eval_list_concat),
+             (is_quote,eval_quote),
+             (is_while_loop,eval_while_loop),
+             (is_do,eval_do),
+             (is_embedded_pype,eval_embedded_pype),
+           ]
 FARG_PAIRS=[(is_mirror,eval_mirror),
             (is_callable,eval_callable),
             (is_map,eval_map),
@@ -1356,7 +1400,7 @@ import traceback
 import sys
 import time as tm
 
-def pype_eval(accum,fArg):
+def pype_eval(accum,fArg,fArgPairs=FARG_PAIRS):
 
     '''
     print('*'*30)
@@ -1366,7 +1410,7 @@ def pype_eval(accum,fArg):
     print([(is_f,evl) for (is_f,evl) in FARG_PAIRS if is_f(fArg)])
     '''
 
-    evalList=[evl for (is_f,evl) in FARG_PAIRS if is_f(fArg)]
+    evalList=[evl for (is_f,evl) in fArgPairs if is_f(fArg)]
 
     if not evalList:
 
@@ -1374,6 +1418,9 @@ def pype_eval(accum,fArg):
 
     eval_f=evalList[-1]
 
+    #print(f'{str(accum)[:100]} is accum')
+    #print(f'{fArg} is fArg')
+    #print(f'{evalList} is evalList')
     #print(f'{eval_f} is eval_f')
 
     try:
@@ -1392,14 +1439,16 @@ def pype_eval(accum,fArg):
         # fArg.  This allows us to handle object lambdas, xednis, indexes, and
         # mirrors.  If we have _.keys it will work.  If we have (_.func,1), 
         # _.func needs to be evaluated on 1.  So lambda cannot return a callable.  
+        
+        # If it's a quote, and the quote returns a callable, we do not evaluate
+        # this callable. THIS IS A SHORT_TERM SOLUTION - we need different fArg 
+        # pairs for different fArg solutions!!!!
 
         if val[ARGS] and is_callable(val[ARGS][0]):
 
-            #print(f'val {val[ARGS][0]} is callable')
-
             val=eval_callable(accum,val[ARGS][0])
 
-            #print(f'after second eval of {eval_f} val is {val}')
+            #print(f'after second eval of {eval_f} val is {str(val)[:100]}')
 
         # Some boilerplate for keeping track of the fArg.
 

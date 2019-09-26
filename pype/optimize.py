@@ -664,36 +664,23 @@ def switch_dict_node(fArg,accum=ACCUM_LOAD):
 # DICT ASSOC #
 ##############
 
-def dict_assoc_node_old(fArgs,accum=ACCUM_LOAD):
-
-    keys=fArgs[1::2]
-    fArgs=fArgs[2::2]
-    assignList=[]
-
-    for (key,fArg) in zip(keys,fArgs):
-
-        optimizedFArg=optimize_rec(fArg)
-        keyNode=parse_literal(key)
-        indexNode=Index(value=keyNode)
-        assignNode=Assign(targets=[Subscript(value=accum,
-                                             slice=indexNode,
-                                             ctx=Store())],
-                          value=optimizedFArg)
-
-        assignList.append(assignNode)
-
-    return assignList
-
-
 def dict_assoc_node(fArgs,accum=ACCUM_LOAD):
 
+    #print('*'*30)
+    #print('dict_assoc_node')
+    #print(f'{ast.dump(accum)} is accum')
+    #print(f'{fArgs} is fArgs')
     key=fArgs[1]
     fArg=fArgs[2]
     keyNode=parse_literal(key)
-    optimizedFArg=optimize_rec(fArg)
+    optimizedFArg=optimize_rec(fArg,accum)
+
+    #print(f'{key} is key')
+    #print(f'{fArg} is fArg')
+    #print(f'{ast.dump(optimizedFArg)} is optimizedFArg')
 
     if len(fArgs) == 3:
-
+        
         return callable_node_with_args(dct_assoc,[accum,keyNode,optimizedFArg])
 
     return callable_node_with_args(dct_assoc,
@@ -785,7 +772,13 @@ def list_build_node(fArgs,accum=ACCUM_LOAD):
 
 def dict_build_node(fArg,accum=ACCUM_LOAD):
 
+    #print('*'*30)
+    #print('dict_build_node')
+    #print(f'{fArg} is fArg')
+
     if is_explicit_dict_build(fArg):
+
+        #print('is_explicit_dict_build')
 
         if len(fArg) >= 3:
 
@@ -794,9 +787,13 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
 
         else:
 
-            keys=fArg[1]
+            # This is for db('key')
+
+            keys=[optimize_rec(fArg[1],accum)]
             vals=[accum]
-    
+            
+            return Dict(keys=keys,values=vals,ctx=Load())
+            
     else:
 
         keys=fArg.keys()
@@ -804,6 +801,9 @@ def dict_build_node(fArg,accum=ACCUM_LOAD):
 
     keys=[optimize_rec(k,accum) for k in keys]
     vals=[optimize_rec(v,accum) for v in vals]
+
+    #print(f'{[ast.dump(n) for n in keys]} is keys')
+    #print(f'{[ast.dump(n) for n in keys]} is vals')
 
     return Dict(keys=keys,values=vals,ctx=Load())
 
@@ -869,6 +869,19 @@ def ast_name_node(fArg,accumNode):
 
     return Name(id=bookmarkName,ctx=Load())
 
+
+#########
+# QUOTE #
+#########
+
+def quote_node(fArgs,accum=ACCUM_LOAD):
+    print('*'*30)
+    print('quote_node')
+    fArg=fArgs.val()
+    
+    print(f'{fArg.val()} is fArg')
+
+    return fArg
 
 ############
 # LITERALS #
@@ -953,6 +966,7 @@ OPTIMIZE_PAIRS=[(is_callable,callable_node),
                 (is_embedded_pype,embedded_pype_node),
                 (is_do,do_node),
                 (is_reduce,reduce_node),
+                (is_quote,quote_node),
                ]
 LAMBDA_OPTIMIZE_PAIRS=[(is_callable,function_node),
                        (is_mirror,mirror_node),
@@ -1226,6 +1240,36 @@ PYPE_RETURN_F_ARGS=Attribute(value=Name(id='optimize',ctx=Load()),
                              attr='pype_return_f_args',
                              ctx=Load())
 
+def get_body_names(el,names=[]):
+    '''
+    Recursively retrieve names from function body.
+    '''
+    if is_list(el):
+
+        for v in el:
+
+            get_body_names(v,names)
+
+    elif isinstance(el,Assign):
+
+        targets=el.targets
+        
+        for target in targets:
+
+            get_body_names(target,names)
+
+    elif isinstance(el,Name):
+
+        names.append(el.id)
+
+    elif isinstance(el,Tuple):
+
+        for v in el.elts:
+
+            get_body_names(v,names)
+
+
+
 class CallNameReplacer(NodeVisitor):
     '''
     This class does two things - first, it changes the returned pype call to 
@@ -1273,15 +1317,17 @@ class CallNameReplacer(NodeVisitor):
         self.accumNode=None
 
     def visit_FunctionDef(self,node):
-
         '''
         We are at the function definition.  First, we update the namesSpace
         with all local variables.  This means that using global constants isn't
         permitted in the optimizer - you have to explicitly put them in the 
         function scope.
         '''
-        bodyNames=[target.id for line in node.body if isinstance(line,Assign) \
-                     for target in line.targets]
+        bodyNames=[]
+        get_body_names(node.body,bodyNames)
+        #print(f'{bodyNames} is bodyNames')
+        #bodyNames=[target.id for line in node.body if isinstance(line,Assign) \
+        #             for target in line.targets]
         argNames=[arg.arg for arg in node.args.args]
         self.nameSpace|=set(bodyNames+argNames)
 
@@ -1566,6 +1612,7 @@ def time_func(func):
 
     originalFuncName=func.__name__
 
+    @wraps(func)
     def timed(*args):
 
         t0=tm.time()

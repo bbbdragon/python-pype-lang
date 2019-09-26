@@ -104,6 +104,13 @@ def zero_above(x,thresh=0):
     x[x > thresh]=0
 
     return x
+
+
+def cap_at(x,thresh=0):
+
+    x[x > thresh]=thresh
+
+    return x
     
 
 def num_rows(a):
@@ -168,3 +175,20 @@ def val_sum(dct):
 def by_indices(a,tuples):
 
     return [a[tup] for tup in tuples]
+
+
+from pype.helpers import dct_values
+
+def array_from_vals(dct):
+
+    return np.array(dct_values(dct))
+
+
+def row_sum(array):
+
+    return np.sum(array,axis=1)
+
+
+def divide_by_row_sum(array):
+
+    return (array.T/row_sum(array)).T

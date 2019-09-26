@@ -355,6 +355,11 @@ def sort_by_index(ls,index,rev=False):
     return sorted(ls,key=itemgetter(index), reverse=rev)
 
 
+def sort_by_func(ls,func,rev=False):
+
+    return sorted(ls,key=func,reverse=rev)
+
+
 def ls_product(ls):
 
     return list(itertools.product(ls,ls))
@@ -588,9 +593,11 @@ def get_call_or_false(obj,*keys):
                 
                 return False
 
+            #print(f'returning {obj[keys[0]]}')
+
             obj=obj[keys[0]]
 
-        if is_dict(obj):
+        elif is_dict(obj):
 
             if keys[0] not in obj:
 
@@ -598,7 +605,7 @@ def get_call_or_false(obj,*keys):
 
             obj=obj[keys[0]]
         
-        if is_string(keys[0]) and hasattr(obj,keys[0]):
+        elif is_string(keys[0]) and hasattr(obj,keys[0]):
 
             obj=getattr(obj,keys[0])
 
@@ -636,3 +643,117 @@ def str_join(st,ls):
 
     return st.join(ls)
 
+
+def set_union(set1,set2):
+
+    return set1|set2
+
+
+def set_intersection(set1,set2):
+
+    return set1&set2
+
+
+def val_div(d1,d2):
+
+    return {k1:v1/d2[k1] if k1 in d2 else 0 for (k1,v1) in d1.items()}
+
+
+def val_sum(js):
+
+    return sum(dct_values(js))
+
+
+def dct_add(dct1,dct2):
+
+    for (k,v) in dct2.items():
+
+        if k not in dct1:
+
+            dct1[k]=0
+
+        dct1[k]+=dct2[k]
+
+    return dct1
+
+
+def first_dct_items(dct,n=10):
+
+    return {k:v for (k,v) in list(dct.items())[:n]}
+
+
+def sum_dct_vals(dct1,dct2):
+
+    keys1=set(dct1.keys())
+    keys2=set(dct2.keys())
+
+    for k in keys1&keys2:
+
+        dct1[k]=dct1[k]+dct2[k]
+
+    for k in keys2-keys1:
+
+        dct1[k]=dct2[k]
+    
+    return dct1
+
+
+def multiply_dct_vals(dct1,dct2):
+
+    keys1=set(dct1.keys())
+    keys2=set(dct2.keys())
+
+    for k in keys1&keys2:
+
+        dct1[k]=dct1[k]*dct2[k]
+
+    for k in keys2-keys1:
+
+        dct1[k]=0
+    
+    return dct1
+
+
+def merge_dct_sums(dctLS):
+
+    return reduce(lambda h,dct:sum_dct_vals(h,dct),dctLS)
+
+
+def cartesian(ls1,ls2):
+
+    return itertools.product(ls1,ls2)
+
+
+def tups_product_filtered(tupLs1,tupLs2):
+
+    return [(tup1,tup2) for (tup1,tup2) \
+            in itertools.product(tupLs1,tupLs2)\
+            if tup1[0] != tup2[0]]
+
+
+def dct_product_filtered(dct1,dct2):
+
+    return tups_product_filtered(dct1.items(),dct2.items())
+
+
+def key1_val2(tup1,tup2):
+
+    return [tup1[0],tup2[1]]
+
+
+def scalar_dct_multiply(scalarDct,dct):
+
+    return {k:scalarDct[k]*v if k in scalarDct else 0 for (k,v) in dct.items()}
+
+
+def scalar_dcts_multiply(scalarDct,dcts):
+
+    return {k:scalar_dct_multiply(scalarDct[k],dct) for (k,dct) in dcts.items()}
+
+
+def dcts_val_multiply(*dcts):
+
+    print(f'{dcts} is dcts')
+
+    return reduce(lambda h,dct:multiply_dct_vals(h,dct),dcts)
+        

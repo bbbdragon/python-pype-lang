@@ -268,7 +268,7 @@ class PypeVal(LamTup):
 
     def __str__(self):
 
-        return 'PV'+str(self._tup_)
+        return f'PV({str(self._tup_)})'
     
 
 class Getter(PypeVal):
@@ -352,6 +352,7 @@ class Quote(object):
 
     def __init__(self,v):
 
+        print(f'intializing quote with v as {v}')
         self.v=v
 
     def val(self):
