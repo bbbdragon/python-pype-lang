@@ -23,6 +23,7 @@ setup(name='python-pype-lang',
       install_requires=[
           'numpy',
           'astpretty',
+          'python-dateutil',
       ],
       include_package_data=True,
       zip_safe=False)
