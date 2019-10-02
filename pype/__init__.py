@@ -925,7 +925,10 @@ def is_list_concat(fArg):
 
 def eval_list_concat(accum,fArgs):
 
+    print(f'eval_list_concat')
+    print(f'{accum} is accum')
     accum=coerce_to_list(accum[ARGS][0])
+    print(f'{accum} is accum')
 
     for fArg in fArgs[1:]:
 
