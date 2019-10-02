@@ -377,6 +377,12 @@ def index_node(fArgs,accum=ACCUM_LOAD,getFunc=get_call_or_false):
     return callable_node_with_args(getFunc,
                                    [optimizedIndexedObject]+optimizedIndicesNodes)
 
+<<<<<<< HEAD
+=======
+    indexArgs=[[el] if is_ast_name(el,fArg) \
+                else replace_with_name_node_rec(fArg,el) \
+                for (el,fArg) in zip(nodeIndexArgs,fArgs[1:])]
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
 
 def lambda_index_node(fArgs,accum=ACCUM_LOAD):
 
@@ -398,7 +404,54 @@ def lambda_node(fArgs,accum=ACCUM_LOAD):
 
     callableFArg=optimize_rec(fArgs[0],optimizePairs=LAMBDA_OPTIMIZE_PAIRS)
 
+<<<<<<< HEAD
     #print(f'{callableFArg} is callableFArg')
+=======
+        leftArg=replace_with_name_node_rec(fArgs[1],node.left)
+        rightArg=replace_with_name_node_rec(fArgs[2],node.right)
+
+        #print(f'rightArg is {dump(rightArg) if is_ast_name(rightArg) else rightArg}')
+
+        return (fArgs[0],leftArg,rightArg)
+
+    if isinstance(node,UnaryOp):
+
+        lambdaArg=node.operand if is_ast_name(node,fArgs[1]) \
+                    else replace_with_name_node_rec(fArgs[1],node.operand)
+
+        return (fArgs[0],lambdaArg)
+
+    if isinstance(node,Compare):
+
+        leftArg=node.left if is_ast_name(node.left,fArgs[1]) else fArgs[1]
+        comparator=node.comparators[0]
+        rightArg=comparator if is_ast_name(comparator,fArgs[2]) else fArgs[2]
+
+        #print('is comparator')
+        #print(f'node is {ast.dump(node)}')
+        #print(f'left arg is {leftArg}')
+        #print(f'right arg is {rightArg}')
+        #print(f'fArgs[1] is {fArgs[1]}')
+
+        return (fArgs[0],leftArg,rightArg)
+
+    if isinstance(node,Tuple):
+        
+        lambdaArgs=[replace_with_name_node_rec(fArg,el) \
+                    for (fArg,el) in zip(fArgs,node.elts)]
+
+        return tuple(lambdaArgs)
+
+    if isinstance(node,Subscript):
+
+        nodeList=node.value
+
+        if isinstance(node.slice,Slice):
+
+            nodeList.extend([node.slice.lower,node.slice.upper])
+        
+        elif isinstance(node.slice,Index):
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
 
     # This has just an "accum" as an args list.  So we need to see if there are
     # other args.
@@ -858,12 +911,23 @@ def do_node(fArgs,accum=ACCUM_LOAD):
                                      [accum,
                                       lambdaNode])
 
+<<<<<<< HEAD
     #print(f'{callNode} is callNode')
 
     return callNode
       
 
 def ast_name_node(fArg,accumNode):
+=======
+def is_ast_name(node,fArg=None):
+
+    isCallable=False if fArg is None else is_callable(fArg)
+
+    return isinstance(node,Name) \
+        and node.id not in ALL_GETTER_IDS \
+        and not isCallable
+      
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
 
     bookmarkName=fArg.name
 
@@ -1266,7 +1330,13 @@ def get_body_names(el,names=[]):
 
         for v in el.elts:
 
+<<<<<<< HEAD
             get_body_names(v,names)
+=======
+IMPORT_PYPE=ImportFrom(module='pype.optimize', 
+                       names=[alias(name='pype_with_f_arg_and_tree', 
+                                    asname=None)])
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
 
 
 
@@ -1443,6 +1513,7 @@ def apply_tree_transformation(tree,replacer,originalFuncName,glbls):
 Stores all optimized functions.
 '''
 FUNCTION_CACHE={}
+import astpretty
 
 import builtins
 #import astpretty
@@ -1466,11 +1537,14 @@ def optimize(pype_func,verbose=False):
     glbls['_operator']=__import__('_operator')
     glbls['np']=__import__('numpy')
 
+<<<<<<< HEAD
     '''
     Grab aliases for pype.
     '''
     aliases=aliases_for_pype(glbls)
 
+=======
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
     @wraps(pype_func)
     def optimized(*args):
         '''
@@ -1505,9 +1579,14 @@ def optimize(pype_func,verbose=False):
 
         if verbose:
 
+<<<<<<< HEAD
             print('*'*30)
             print('after no return replacer tree is')
             astpretty.pprint(tree)
+=======
+        recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
+        v,fArgs,fArgTypes=recompiled_pype_func(*args)
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
         '''
         '''
         Now, we want to replace any name, either in the global variables or the
@@ -1630,13 +1709,113 @@ def test_f(ls):
     x=2
 
     return p( ls,
+<<<<<<< HEAD
               _[x],
               #np.array,
              )
+=======
+              _[1:][1],
+              _+x)
+@optimize
+def calc7(ls):
+
+    x=3
+
+    return p(ls,
+             [_+x])
+
+@optimize
+def calc8(ls):
+
+    x=3
+
+    return p(ls,
+             [[_>x]])
+
+
+@optimize
+def calc9(ls):
+
+    x=1
+
+    return p(ls,
+             _[x])
+
+@optimize
+def calc10(dct):
+
+    s='whatever'
+
+    return p(dct,
+             _a('length',s))
+@optimize
+def calc11(dct):
+
+    lenKey=1
+    s='whatever'
+
+    return p(dct,
+             _a('length',s),
+             _d(lenKey))
+
+@optimize
+def calc12(ls):
+
+    return p(ls,
+             (zip,_,_[1:]),
+             [_l(_0,_1)],
+            ) 
+
+from pype.vals import lenf
+@optimize
+def calc13(ls):
+
+    v=[1]
+
+    return p( ls,
+              {'el':v*lenf})
+'''
+
+import numpy as np
+from pype.helpers import *
+import pype.helpers
+from pype.vals import lenf
+
+@optimize
+def calc14(dct):
+
+    return p( dct,
+              [[lenf > 2]],
+            )
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
 
 
 if __name__=='__main__':
 
+<<<<<<< HEAD
     print(test_f([1,2,3]))
     print(test_f([1,2,3]))
     #print(test_f([1,2]))
+=======
+    #pass
+    #print(calc([1]))
+    #print(calc([2]))
+    #print(calc3([2,4]))
+    #print(calc3([2,4]))
+    #print(calc6([[1,2],3,4]))
+    #print(calc7([1,2,4,5]))
+    #print(calc8([1,2,4,5]))
+    #print(calc8([1,2,4,5]))
+    #print(calc9([1,2,4,5]))
+    #print(calc9([1,2,4,5]))
+    #print(caloc10({1:2,4:5}))
+    #print(calc10({1:2,4:5}))
+    #print(calc11({1:2,4:5}))
+    #print(calc11({1:2,4:5}))
+    #print(calc12([1,2,3,4,5,6]))
+    #print(calc12([1,2,3,4,5,6])) 
+    #print(calc13([[1,2],[3,4],[5,6]])) 
+    #print(calc13([[1,2],[3,4],[5,6]])) 
+    print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
+    print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4

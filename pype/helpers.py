@@ -425,6 +425,7 @@ def dct_from_tups(tups,*keys):
     return [dct_from_tup(tup,*keys) for tup in tups]
 
     
+<<<<<<< HEAD
 def middle(ls):
 
     if len(ls) == 0:
@@ -781,3 +782,8 @@ def get_min(ls):
 def ls_elements(ls,indices):
 
     return [ls[i] for i in indices]
+=======
+def val_div(d1,d2):
+
+    return {k1:v1/d2[k1] if k1 in d2 else 0 for (k1,v1) in d1.items()}
+>>>>>>> 58914e6694a5b5a23a4ee1bf8d5cf254179837c4
