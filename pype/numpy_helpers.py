@@ -1,6 +1,8 @@
 import numpy as np
+from pype import pype as p,_
+from pype.optimize import optimize
 
-def aggregate_by_key(m,pad=True):
+def aggregate_by_key(m,padVal=0,pad=True):
     '''
     This is a helper which takes an array with two columns.  It is the numpy
     equivalent of grouping represented by tup_ls_dct in pype.
@@ -37,7 +39,7 @@ def aggregate_by_key(m,pad=True):
         aggregatedValues=[np.lib.pad(a,
                                      (0,maxLen-a.shape[0]),
                                      'constant',
-                                     constant_values=(0,0))\
+                                     constant_values=(padVal,padVal))\
                           for a in splitValues]
         aggregatedValues=np.array(aggregatedValues)
 
@@ -46,6 +48,15 @@ def aggregate_by_key(m,pad=True):
         aggregatedValues=splitValues
 
     return aggregatedValues,uniqueKeys[0],uniqueKeys[1]
+
+
+def sorted_aggregate_by_key(m,padVal=0,pad=True):
+
+    aggregatedValues,uniqueKeys,uniqueCounts=aggregate_by_key(m)
+
+    aggregatedValues.sort(axis=1)
+
+    return aggregatedValues,uniqueKeys,uniqueCounts
 
 
 def aggregate_jsons_by_key(ls,key):
@@ -191,4 +202,113 @@ def row_sum(array):
 
 def divide_by_row_sum(array):
 
+    array+=1
+
     return (array.T/row_sum(array)).T
+
+
+def unique_row_elements(array):
+
+    return np.unique(array,axis=1)
+
+
+def unique_row_counts(array):
+    '''
+    Thanks https://stackoverflow.com/questions/48473056/number-of-unique-elements-per-row-in-a-numpy-array
+    '''
+    array.sort(axis=1)
+
+    return (array[:,1:] != array[:,:-1]).sum(axis=1)+1
+
+
+def count_nonzeros_in_rows(array):
+
+    return np.count_nonzero(array,axis=1)
+
+
+
+def enumerate_array(array):
+
+    m=np.zeros([array.shape[0],2])
+
+    m[:,0]=np.arange(m.shape[0],dtype=np.int32)
+    m[:,1]=array
+
+    return m
+
+
+def enumerate_array_rev(array):
+
+    m=np.zeros([array.shape[0],2],dtype=np.int32)
+
+    m[:,1]=np.arange(m.shape[0])
+    m[:,0]=array
+
+    return m
+
+
+def unique_indices(array):
+
+    array.sort()
+
+    return [(array == i).nonzero()[0][0] for i in np.unique(array)]
+
+
+def sort_by_row(array):
+
+    array.sort(axis=1)
+
+    return array
+
+
+def unique_row_counts(array):
+
+    array.sort(axis=1)
+
+    uniqueElements,counts=np.unique(array,return_counts=True)
+
+    return uniqueElements,counts
+
+
+def unique_counts(array):
+
+    uniqueElements,counts=np.unique(array,return_counts=True)
+   
+    return counts
+
+
+def unique_sorted_counts(array):
+
+    array.sort()
+
+    return unique_counts(array)
+
+
+def sort_array(array):
+
+    array.sort()
+
+    return array
+
+
+def from_mat(mat,i,j):
+    '''
+    Placeholder for when we can fix the indexing with numpy arrays.
+    '''
+    return mat[i,j]
+
+
+@optimize
+def count_prob_array(ls,discount=0):
+
+    return p( ls,
+              np.array,
+              unique_counts,
+              _-discount,
+              _+1e-100,
+              _/np.sum)
+
+
+def count_prob_diag(ls,discount=0):
+
+    return np.diag(count_prob_array(ls,discount))
