@@ -1,5 +1,5 @@
 '''
-python3.7 new_my_optimize.py
+python3 optimize.py
 '''
 py_slice=slice
 import pype as pyp
@@ -248,7 +248,7 @@ def replace_index_names(fArgs,node):
         raise Exception(f'replace index name, fArgs are {fArgs}'
                         ' node is {dump(node)}')
 
-    indexArgs=[[el] if is_ast_name(el) \
+    indexArgs=[[el] if is_ast_name(el,fArg) \
                 else replace_with_name_node_rec(fArg,el) \
                 for (el,fArg) in zip(nodeIndexArgs,fArgs[1:])]
 
@@ -315,16 +315,22 @@ def replace_lambda_names(fArgs,node):
 
     if isinstance(node,UnaryOp):
 
-        lambdaArg=node.operand if is_ast_name(node) \
+        lambdaArg=node.operand if is_ast_name(node,fArgs[1]) \
                     else replace_with_name_node_rec(fArgs[1],node.operand)
 
         return (fArgs[0],lambdaArg)
 
     if isinstance(node,Compare):
 
-        leftArg=node.left if is_ast_name(node.left) else fArgs[1]
+        leftArg=node.left if is_ast_name(node.left,fArgs[1]) else fArgs[1]
         comparator=node.comparators[0]
-        rightArg=comparator if is_ast_name(comparator) else fArgs[2]
+        rightArg=comparator if is_ast_name(comparator,fArgs[2]) else fArgs[2]
+
+        #print('is comparator')
+        #print(f'node is {ast.dump(node)}')
+        #print(f'left arg is {leftArg}')
+        #print(f'right arg is {rightArg}')
+        #print(f'fArgs[1] is {fArgs[1]}')
 
         return (fArgs[0],leftArg,rightArg)
 
@@ -871,10 +877,14 @@ def replace_embedded_pype_names(fArgs,node):
 # AST NAMES #
 #############
 
-def is_ast_name(node):
+def is_ast_name(node,fArg=None):
 
-    return isinstance(node,Name) and node.id not in ALL_GETTER_IDS
+    isCallable=False if fArg is None else is_callable(fArg)
 
+    return isinstance(node,Name) \
+        and node.id not in ALL_GETTER_IDS \
+        and not isCallable
+      
 
 def ast_name_node(node,accumNode):
 
@@ -1089,7 +1099,7 @@ def pype_with_f_arg_and_tree(accum,*fArgs):
     return successiveEvals[-1],list(fArgs),fArgTypes
 
 
-IMPORT_PYPE=ImportFrom(module='new_my_optimize', 
+IMPORT_PYPE=ImportFrom(module='pype.optimize', 
                        names=[alias(name='pype_with_f_arg_and_tree', 
                                     asname=None)])
 
@@ -1200,6 +1210,7 @@ def replace_with_name_node(fArgs,nodes):
 
 
 FUNCTION_CACHE={}
+import astpretty
 
 def optimize(pype_func):
 
@@ -1211,10 +1222,6 @@ def optimize(pype_func):
     mod=__import__(moduleName)
     glbls[moduleName]=mod
 
-    #print(f'{aliases} is aliases')
-
-    #pp.pprint(glbls)
-    
     @wraps(pype_func)
     def optimized(*args):
 
@@ -1250,7 +1257,6 @@ def optimize(pype_func):
              recompiledReplacerNamespace)
 
         recompiled_pype_func=recompiledReplacerNamespace[originalFuncName]
-        # print(recompiled_pype_func(*args))
         v,fArgs,fArgTypes=recompiled_pype_func(*args)
         '''
         Second pass, we find anywhere where the pype expression has a reference
@@ -1452,25 +1458,13 @@ def calc13(ls):
 import numpy as np
 from pype.helpers import *
 import pype.helpers
-
-def sm_ls(ls):
-
-    return sum(ls)
-
-def another_dict(dct):
-
-    return {'len':len(dct)}
+from pype.vals import lenf
 
 @optimize
 def calc14(dct):
 
     return p( dct,
-              _m(another_dict),
-              #dct_items,
-              #{'keys':[_0],
-              # 'vals':_p([_1],
-              #           [_a('this',3)],
-              #          )},
+              [[lenf > 2]],
             )
 
 # print(calc4({1:2,3:4,8:9,7:9.5,10:11}))
@@ -1496,5 +1490,5 @@ if __name__=='__main__':
     #print(calc12([1,2,3,4,5,6])) 
     #print(calc13([[1,2],[3,4],[5,6]])) 
     #print(calc13([[1,2],[3,4],[5,6]])) 
-    print(calc14({'a':1,'b':2,'c':3}))
-    print(calc14({'a':1,'b':2,'c':3}))
+    print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))
+    print(calc14({'a':[1,2,3],'b':[2,2,3,4],'c':[3]}))

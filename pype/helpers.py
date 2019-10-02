@@ -314,3 +314,6 @@ def zip_to_dct(tups,keys):
     return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
 
     
+def val_div(d1,d2):
+
+    return {k1:v1/d2[k1] if k1 in d2 else 0 for (k1,v1) in d1.items()}
