@@ -224,6 +224,21 @@ def dct_merge_vals(dct1,dct2):
     return dct1
 
 
+def dct_merge_ls_vals(dct1,dct2):
+
+    for (k,d) in dct2.items():
+
+        if k not in dct1:
+
+            dct1[k]=d
+
+        else:
+
+            dct1[k].extend(dct2[k])
+
+    return dct1
+
+
 def dct_merge_vals_if(dct1,dct2):
 
     for (k,d) in dct1.items():
@@ -757,3 +772,12 @@ def dcts_val_multiply(*dcts):
 
     return reduce(lambda h,dct:multiply_dct_vals(h,dct),dcts)
         
+
+def get_min(ls):
+
+    return min(ls)
+
+
+def ls_elements(ls,indices):
+
+    return [ls[i] for i in indices]
