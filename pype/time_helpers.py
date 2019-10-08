@@ -100,7 +100,7 @@ def begin_next_week_string(dateString):
 
 def today():
 
-    return dt.datetime.now()
+    return datetime_to_date(dt.datetime.now())
 
 def today_string():
 
@@ -110,6 +110,13 @@ def today_string():
 def date_to_month(date):
 
     return dt.datetime(year=date.year,month=date.month,day=1)
+
+
+def datetime_to_date(date):
+
+    return dt.datetime(year=date.year,month=date.month,day=date.day)
+
+
 
 DATE_RANGE=date_range(BEGIN,END)
 DATE_STRING_RANGE=[]
@@ -173,9 +180,9 @@ def date_string_to_int(dateString):
     return from_cache(dateString,DATE_TO_INT_CACHE)
 
 
-def date_to_date_string(dateString):
+def date_to_date_string(date):
 
-    return from_cache(dateString,DATE_TO_STRING_CACHE)
+    return from_cache(date,DATE_TO_STRING_CACHE)
 
 
 def int_to_date_string(dateInt):
