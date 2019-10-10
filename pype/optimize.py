@@ -893,6 +893,10 @@ def parse_literal(fArg):
 
         return None
 
+    if isinstance(fArg,bool):
+
+        return NameConstant(value=fArg)
+
     if isinstance(fArg,str):
 
         return Str(s=fArg)
