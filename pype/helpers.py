@@ -380,6 +380,24 @@ def ls_product(ls):
     return list(itertools.product(ls,ls))
 
 
+def cartesian(el1,el2):
+
+    if not (is_list(el1) or is_tuple(el1)):
+
+        el1=[el1]
+
+    if not (is_list(el2) or is_tuple(el2)):
+
+        el2=[el2]
+
+    return itertools.product(el1,el2)
+
+
+def cartesian_ls(el1,el2):
+
+    return list(cartesian(el1,el2))
+
+
 def ls_append(ls,el):
 
     ls.append(el)
@@ -523,6 +541,7 @@ def reverse_dct_vals(dct):
             newD[k2][k1]=v
 
     return dict(newD)
+
 
 
 def prod_by_one(el,ls):
@@ -732,11 +751,6 @@ def multiply_dct_vals(dct1,dct2):
 def merge_dct_sums(dctLS):
 
     return reduce(lambda h,dct:sum_dct_vals(h,dct),dctLS)
-
-
-def cartesian(ls1,ls2):
-
-    return itertools.product(ls1,ls2)
 
 
 def tups_product_filtered(tupLs1,tupLs2):

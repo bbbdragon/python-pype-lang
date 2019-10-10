@@ -102,6 +102,7 @@ def today():
 
     return datetime_to_date(dt.datetime.now())
 
+
 def today_string():
 
     return date_string(today())

@@ -312,3 +312,20 @@ def count_prob_array(ls,discount=0):
 def count_prob_diag(ls,discount=0):
 
     return np.diag(count_prob_array(ls,discount))
+
+
+def row_median(m,pad=False):
+
+    vals,uniqueKeys,uniqueCounts=aggregate_by_key(m,0,False)
+
+    return vals
+
+
+def filter_array(m,threshold=0):
+
+    m=np.array(m)
+
+    np.place(m,m>threshold,1)
+
+    return m
+
