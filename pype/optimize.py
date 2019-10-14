@@ -1073,13 +1073,29 @@ def aliases_for_pype(glbls):
     the pype function.  Helps when pype is given another name, as in:
 
     from pype import pype as p
-    '''
-    #print(f'{p} is pype')
-    #print(f'{pype_f} is pype')
 
-    return set([alias for (alias,f) in glbls.items() \
-                if glbls[alias] == pype_f \
-                and is_callable(f)])
+    Using try-catch block for objects with ambiguous truth values, like numpy arrays.
+    '''
+    aliases=set()
+
+    for (alias,f) in glbls.items():
+
+        try:
+
+            if glbls[alias] == pype_f and is_callable(f):
+
+                aliases.add(alias)
+
+        except Exception as e:
+
+            '''
+            print(f'for alias {alias}')
+            print(e)
+            print('adding alias anyway')
+            '''
+            aliases.add(alias)
+
+    return aliases
 
 
 #######################
