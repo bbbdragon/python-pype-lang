@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 #    LONG_DESCRIPTION=fh.read()
 
 setup(name='python-pype-lang',
-      version='1.1.6',
+      version='1.1.7',
       description='Python-integrated functional programming language - Provides easy-to-use pseudo-macros for common functional programming tasks such as maps, reduces, filters, conditionals, dictionary manipulations, and list manipulations..',
       #long_description_content_type="text/markdown",
       #long_description=LONG_DESCRIPTION,
