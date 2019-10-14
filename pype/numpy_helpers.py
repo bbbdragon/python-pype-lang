@@ -322,7 +322,9 @@ def row_median(m,pad=False):
 
 
 def filter_array(m,threshold=0):
-
+    '''
+    This sets anything above the threshold to 1.
+    '''
     m=np.array(m)
 
     np.place(m,m>threshold,1)
