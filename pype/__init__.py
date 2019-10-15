@@ -17,7 +17,7 @@ from pype.vals import NameBookmark
 
 #import __builtins__
 
-__version__='1.1.7'
+__version__='1.1.8'
 
 #BUILTINS=set(__builtins.__dict__.values())
 
@@ -78,8 +78,8 @@ MIRROR=Getter('_pype_mirror_')
 _=MIRROR
 __=MIRROR
 MIRROR_SET=set([MIRROR])
-_0,_1,_2,_3=[LamTup((_,[i])) for i in range(4)]
-_last=(_,[-1])
+_0,_1,_2,_3=[LamTup((_,(i,))) for i in range(4)]
+_last=(_,(-1,))
 '''
 _0=Getter('_arg0_')
 _1=Getter('_arg1_')
@@ -191,7 +191,7 @@ def eval_mirror(accum,fArg):
 
 def is_getitem(el):
 
-    return is_list(el) \
+    return is_tuple(el) \
         and len(el) == 1
 
 
@@ -263,6 +263,9 @@ def get_all_indices(fArg,ls=[]):
 
 
 def is_index(fArg):
+    # print('is_index')
+    # print(f'{fArg} is fArg')
+    # print(f'{is_tuple(fArg) and len(fArg) == 2 and is_getitem(fArg[1])}')
 
     return is_tuple(fArg) \
         and len(fArg) == 2 \
