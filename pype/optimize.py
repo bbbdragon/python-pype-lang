@@ -1082,18 +1082,17 @@ def aliases_for_pype(glbls):
 
         try:
 
-            if glbls[alias] == pype_f and is_callable(f):
+            if is_callable(f) and glbls[alias] == pype_f:
 
                 aliases.add(alias)
 
         except Exception as e:
-
             '''
             print(f'for alias {alias}')
             print(e)
             print('adding alias anyway')
             '''
-            aliases.add(alias)
+            pass
 
     return aliases
 
