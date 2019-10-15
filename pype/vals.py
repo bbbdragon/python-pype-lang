@@ -87,22 +87,22 @@ class LamTup(object):
                # The first is _[0][0], the second is _[0,0], which should both
                # after delam parse as ((('_pype_mirror_',), [0]), [0])
 
-               return LamTup(self.__getitem__(val[:-1]),[val[-1]])
+               return LamTup(self.__getitem__(val[:-1]),(val[-1],))
 
            else:
 
-               return LamTup(self.val(),[val[0]])
+               return LamTup(self.val(),(val[0],))
 
         elif is_slice(val):
 
             return LamTup(getitem,self.val(),(slice,val.start,val.stop))
 
-        return LamTup(self.val(),[val])
+        return LamTup(self.val(),(val,))
 
 
     def __getattr__(self,val):
 
-        return LamTup(self.val(),[val])
+        return LamTup(self.val(),(val,))
 
 
     def __hash__(self):

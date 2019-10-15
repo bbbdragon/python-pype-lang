@@ -100,6 +100,9 @@ def get_module_alias(fArg):
 ##########
 
 def mirror_node(fArgs,accum=ACCUM_LOAD):
+    # print('mirror_node')
+    # print(f'{fArgs} is fArgs')
+    # print(f'{accum} is accum')
 
     return accum
 
@@ -392,13 +395,16 @@ import ast
 
 def lambda_node(fArgs,accum=ACCUM_LOAD):
     # First element of lambda must be callable.  Replace with real fArg when you can.
-    #print('*'*30)
-    #print('lambda_node')
-    #print(f'{fArgs} is fArgs')
+    # print('*'*30)
+    # print('lambda_node')
+    # print(f'{fArgs} is fArgs')
+    # print(f'{ast.dump(accum)} is accum')
 
-    callableFArg=optimize_rec(fArgs[0],optimizePairs=LAMBDA_OPTIMIZE_PAIRS)
+    callableFArg=optimize_rec(fArgs[0],
+                              accumNode=accum,
+                              optimizePairs=LAMBDA_OPTIMIZE_PAIRS)
 
-    #print(f'{callableFArg} is callableFArg')
+    # print(f'{ast.dump(callableFArg)} is callableFArg')
 
     # This has just an "accum" as an args list.  So we need to see if there are
     # other args.
@@ -875,13 +881,19 @@ def ast_name_node(fArg,accumNode):
 #########
 
 def quote_node(fArgs,accum=ACCUM_LOAD):
-    print('*'*30)
-    print('quote_node')
+    # print('*'*30)
+    # print('quote_node')
+
     fArg=fArgs.val()
     
-    print(f'{fArg.val()} is fArg')
+    # print(f'{fArg.val()} is fArg')
 
-    return fArg
+    node=optimize_rec(fArg,ACCUM_LOAD)
+
+    # print(f'{dump(node)} is node')
+
+    return node
+
 
 ############
 # LITERALS #
