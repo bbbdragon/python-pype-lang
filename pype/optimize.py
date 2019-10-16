@@ -1479,7 +1479,7 @@ import builtins
 #import astpretty
 #import pprint as pp
 
-def optimize(pype_func,verbose=False):
+def optimize(pype_func,verbose=True):
 
     originalFuncName=pype_func.__name__
     src=getsource(pype_func)
