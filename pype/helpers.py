@@ -4,6 +4,7 @@ import itertools
 from copy import deepcopy
 from operator import itemgetter
 import pprint as pp
+import numpy as np
 
 #################
 # TYPE CHECKING #
@@ -360,9 +361,20 @@ def zip_ls(ls1,ls2):
     return list(zip(ls1,ls2))
 
 
+def zip_dct(ls1,ls2):
+
+    return tup_dct(zip(ls1,ls2))
+
+
 def sort_by_key(ls,key,rev=False):
 
     return sorted(ls,key=lambda js: js[key], reverse=rev)
+
+
+def sort_by_keys(ls,*keys):
+
+    return sorted(ls,
+                  key=lambda js: [js[key] for key in keys])
 
 
 def sort_by_index(ls,index,rev=False):
@@ -380,17 +392,12 @@ def ls_product(ls):
     return list(itertools.product(ls,ls))
 
 
-def cartesian(el1,el2):
+def cartesian(*lists):
 
-    if not (is_list(el1) or is_tuple(el1)):
+    lists=[[el] if (not is_list(el) and not is_tuple(el)) \
+           else el for el in lists]
 
-        el1=[el1]
-
-    if not (is_list(el2) or is_tuple(el2)):
-
-        el2=[el2]
-
-    return itertools.product(el1,el2)
+    return itertools.product(*lists)
 
 
 def cartesian_ls(el1,el2):
@@ -428,7 +435,7 @@ def add_key_as(dct,key):
     return dct
 
     
-def zip_to_dct(tups,keys):
+def zip_tups_with_keys(tups,*keys):
 
     return {tup[0]:dict(zip(keys,tup[1:])) for tup in tups}
 
@@ -579,88 +586,85 @@ def rng(ln):
     return range(ln)
 
 
+def get_call_or_false_core(obj,useCallable,keys):
+    # print('get_call_or_false_core')
+    # print(f'{obj} is obj')
+    # print(f'{keys} is keys')
+    # print(f'{useCallable} is useCallable')
+
+    # If the object is a callable and we are allowed to call it, then
+    # we call it on either the next key or nothing at all.
+    if useCallable and is_callable(obj):
+        
+        # print('calling object')
+
+        if len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
+
+            obj=obj()
+
+        else:
+
+            obj=obj(key[0])
+
+        # print(f'{obj} is obj after calling')
+
+    # Base condition, there are no keys, or keys is a list with an empty tuple,
+    # so we return the object.
+    elif len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
+   
+        # print('no keys')
+
+        return obj
+
+    # Is this a numpy array?  Then index it directly.
+    elif is_ndarray(obj):
+
+        return obj[keys]
+
+    # Is this a list or a tuple?
+    elif is_list(obj) or is_tuple(obj):
+
+        # Then the index will be an integer.  However, if it's out of bounds
+        # we return False.
+        if keys[0] >= len(obj):
+                
+            return False
+
+        # Otherwise let's set the object to the element at the index.  
+        obj=obj[keys[0]]
+
+    # Is this a dictionary?
+    elif is_dict(obj):
+
+        # Is the first key in the dictionary?  No?  Return False.
+        if keys[0] not in obj:
+
+            return False
+
+        # Get the object.
+        obj=obj[keys[0]]
+    
+    # What if obj is an object, and the first key is an attribute?
+    elif is_string(keys[0]) and hasattr(obj,keys[0]):
+        
+        # print('getting attribute')
+
+        # Get the attribute ...
+        obj=getattr(obj,keys[0])
+
+    # Otherwise, recurse into the next key.  Base condition at beginning of the 
+    # function.
+    return get_call_or_false_core(obj,useCallable,keys[1:])
+
+
 def get_or_false(obj,*keys):
 
-    if keys:
-
-        if is_list(obj):
-
-            if keys[0] >= len(obj):
-                
-                return False
-
-            obj=obj[keys[0]]
-        
-            return get_or_false(obj,keys[1:])
-
-        if is_dict(obj):
-
-            if keys[0] not in obj:
-
-                return False
-
-            obj=obj[keys[0]]
-        
-            return get_or_false(obj,keys[1:])
-
-        if is_string(keys[0]) and hasattr(obj,keys[0]):
-
-            attr=getattr(obj,keys[0])
-
-            return get_or_false(attr,keys[1:])
-
-    return obj
+    return get_call_or_false_core(obj,False,keys)
 
 
 def get_call_or_false(obj,*keys):
 
-    #print('='*30)
-    #print('get_call_or_false')
-    #print(f'{obj} is obj')
-    #print(f'{keys} is keys')
-
-    if keys:
-
-        if is_list(obj) or is_tuple(obj):
-
-            if keys[0] >= len(obj):
-                
-                return False
-
-            #print(f'returning {obj[keys[0]]}')
-
-            obj=obj[keys[0]]
-
-        elif is_dict(obj):
-
-            if keys[0] not in obj:
-
-                return False
-
-            obj=obj[keys[0]]
-        
-        elif is_string(keys[0]) and hasattr(obj,keys[0]):
-
-            obj=getattr(obj,keys[0])
-
-        if len(keys) == 1:
-
-            return obj
-
-        return get_call_or_false(obj,keys[1:])
-
-    if is_callable(obj):
-
-        if not keys or not keys[0]:
-
-            return obj()
-
-        firstKey=keys[0]
-        obj=obj(firstKey)
-
-        return get_call_or_false(obj,keys[1:])
-    
-    return obj
+    return get_call_or_false_core(obj,True,keys)
 
 
 def reduce_func(func,iterable):
@@ -799,3 +803,17 @@ def ls_elements(ls,indices):
 def val_div(d1,d2):
 
     return {k1:v1/d2[k1] if k1 in d2 else 0 for (k1,v1) in d1.items()}
+
+
+import hashlib
+
+def dct_hash(dct):
+
+    return hashlib.md5(str(dct).encode('utf8')).hexdigest()
+
+
+def unique_dcts(dctLS):
+
+    d={dct_hash(dct):dct for dct in dctLS}
+
+    return list(d.values())
