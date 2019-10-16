@@ -495,36 +495,6 @@ pype([1,2,3,4],
       _ + [add1] + [0] * lenf, 
       [_ * 3])
 ```
-## Object Lambdas
-
-`_.string`
-
-An object lambda takes an object as an accum.  `string` is then an attribute, either a field of the class or a member function. It evaluates in three different ways:
-
-1. If the object lambda is not the first element of a lambda, and the string refers to a member function of the accum, then that function is called, and its value is returned:
-```
-pype({1:2,3:4},_.keys) <=> {1:2,3:4}.keys() <=> dict_keys([1,3])
-
-def CallMe():
-  def __init__(self):
-    self.me='me'
-  def call(self):
-    return 'hi'
-  def add1(self,x):
-  	return x+1
-
-pype(CallMe(),_.call) <=> CallMe().call() <=> 'hi'
-```
-2. If the object lambda is not the first element of a lambda, and the string refers to a field of the accum, then the value of that field is returned:
-```
-pype(CallMe(),_.me) <=> CallMe().me <=> 'me'    
-```
-3. If the object lambda is the first element of a lambda, and the string refers to a member function of the accum, then that function is applied to the other arguments of the lambda:
-```
-pype(CallMe(),(_.add1,1)) <=> CallMe().add1(1) <=> 2
-```
-`Getter` and `PypeVal` objects override the `__getattr__` function to return an object lambda.  
-
 ## Indexes
 
 `idx=[<<expression|fArg>+]|.expression|fArg>`
@@ -573,6 +543,71 @@ d={'a':1,'b':2}
 pype(d,_.a) => 1
 pype(d,_.b) => 2
 ```
+Also note that indexing is used to access fields of objects:
+```
+class Obj:
+  def __init__(self,val):
+    self.val=val
+    
+o=Obj(1)
+
+pype( o,
+      _.val) => 1 
+```
+### Indices and Callables
+When the index returns a callable, there are two possibilities.  If the index is the first element of a lambda expression, then the callable is called on the arguments of a lambda:
+```
+funcs={'sum':sum,'add1':add1}
+
+pype( funcs,
+      (_.sum,1,2)) => 3 
+```
+If the index is anywhere else, the callable will be evaluated on the accum:
+```
+def add_to_a(dct):
+   dct['a']+=1
+   return dct
+   
+d={'sum':sum,'add_to_a':add_to_a,'a':1,'b':2}
+
+pype( d,
+      (_.sum,ep(_.add_to_a,_.a),_.b)) => 4
+```
+This functionality is useful when you want to call a list of functions on the same data structure:
+```
+funcs=[add1,add2,add3,add4]
+x=1
+pype( funcs,
+      [(_,x)]) => [2,3,4,5] 
+```
+It is also useful when you want to call an object method, and this object method is not in the first position of the lambda, the method gets called on the accum:
+```
+class Obj:
+  def __init__(self,val):
+    self.val=val
+  def add1():
+    return self.val+1
+o=Obj(1)
+
+pype( o,
+      _.add1) => 2 
+```
+Or when it is in the first position of a lambda:
+```
+class Obj:
+  def __init__(self,val):
+    self.val=val
+  def add1():
+    return self.val+1
+  def add(x):
+    return self.val + x
+    
+o=Obj(1)
+
+pype( o,
+      (_.add,2)) => 3 
+```
+
 ## Xednis
 
 `<sequence|mapping>.[<expression|fArg>+]`
@@ -1062,7 +1097,7 @@ val2=some_other_pype_func(js2)
 Howevwer, pype's natural habitat is a microservice, so you're going to see/write a lot of code like this:
 ```
 from pype import pype as p
-from pype import _d as _db # dict build
+from pype import _d as db # dict build
 from flask import request, jsonify
 
 @app.route('/add',methods=['POST'])
