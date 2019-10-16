@@ -415,9 +415,9 @@ pype({3:1,4:2,5:3},dct_items,[key_value_string]) <=> ['key is 3, value is 1','ke
 ```
 ## Reduces
 
-`[(fArg1,),<expression|fArg2>?]`
+`[(fArg1,),<expression|fArg2>,<expression|fArg3>]`
 
-This is a reduce on an iterable accum, where `fArg1` is a binary function applied to an accumuled value and an element of the accum:
+This is a reduce on an iterable accum, where `fArg1` is a binary function applied to an accumuled value and an element of the accum, `<expression|fArg2>` is the starting value, and `<expression|fArg3>` is the iterable:
 ```
 sm=lambda accumulatedValue,element: accumulatedValue+element
 
@@ -454,7 +454,7 @@ Note that when there is only one fArg, the expression is equivalent to an AND fi
 
 ## Lambdas 
 
-`(<callable|object lambda>,<expression|fArg>,+)`
+`(<callable|fArg>,<expression|fArg>,+)`
 
 Lambdas replace the cumbersome syntax of lambdas in Python3.  The first element of a lambda is a callable or an object lambda which returns a callable.  The other elements are arguments to this callable.  If these arguments are fArgs, they are evaluated against the accum:
 ```
@@ -527,7 +527,8 @@ pype(CallMe(),(_.add1,1)) <=> CallMe().add1(1) <=> 2
 
 ## Indexes
 
-`_[<expression|fArg>+]`
+`idx=[<<expression|fArg>+]|.expression|fArg>`
+`_idx`
 
 Or indices if you want to be a snob about it.  These take a sequence or a mapping as an accum.  If the accum is a sequence, then each `<expression|fArg>` must evaluate to an integer.  If the accum is a mapping, it must evaluate to a key of the mapping:
 ```
@@ -564,6 +565,13 @@ from pype.vals import PypeVal
 lenf=PypeVal(len)
 ls=[1,2,3,4]
 pype(ls,_[lenf - 1]) <=> ls[len(ls) - 1] <=> ls[4 - 1] <=> ls[3]
+```
+You can also use dot notation for more legibility:
+```
+d={'a':1,'b':2}
+
+pype(d,_.a) => 1
+pype(d,_.b) => 2
 ```
 ## Xednis
 
@@ -679,13 +687,13 @@ p([1,2],_concat(_,[3,4]) <=> [1,2,3,4]
 
 This builds a dictionary.  If we use the `_d(..)` syntax, we supply key-value pairs consecutively, ensuring that the evaluation of any fArg for a key is hashable:
 ```
-from pype import _d
+from pype import _d as db
 
-pype(2,_d(1,_+1,3,_+3)) <=> {1:2+1,3:2+3} <=> {1:3,3:5}
+pype(2,db(1,_+1,3,_+3)) <=> {1:2+1,3:2+3} <=> {1:3,3:5}
 ```
 If you only have one fArg expression in the build expression, that fArg will be the key for the accum in the new dictionary:
 ```
-pype(2,_d('two')) <=> pype(2,_d('two',_)) <=> {'two':2}
+pype(2,db('two')) <=> pype(2,db('two',_)) <=> {'two':2}
 ```
 If the raw dictionary syntax is used, we must ensure that the dictionary does not contain the key "else", otherwise it will be evaluated as a switch dict:
 ```
@@ -698,9 +706,9 @@ pype(2,{_+1:_+3,_*4:_*3}) <=> {2+1:2+3, 2*4:2*3} <=> {3:5, 8:10}
 
 We insert one or more key-value pairs into the accum, where accum is a mapping, in the same way as Dict Build:
 ```
-from pype import _assoc
+from pype import _assoc as a
 
-pype({1:2},_assoc(3,4,5,6)) <=> {1:2,3:4,5:6}
+pype({1:2},a(3,4,5,6)) <=> {1:2,3:4,5:6}
 ```
 
 A commonly used shorthand for assoc is `_a` - `import _assoc as _a`.
@@ -719,9 +727,9 @@ A commonly used shorthand for assoc is `_m` - `import _merge as _m`.
 
 This removes keys specified by `<exppression|fArg>,+` from the accum, which must be a mapping:
 ```
-from pype import dissoc
+from pype import _dissoc as d
 
-pype({1:2,3:4},_dissoc(1)) <=> {3:4}
+pype({1:2,3:4},d(1)) <=> {3:4}
 ```
 A commonly used shorthand for assoc is `_d` - `import _dissoc as _d`, although this overrides the `_d` for dict builds, so be careful.  I like to use `_db` for dict build, and `_d` for `dissoc`.  
 
@@ -730,12 +738,35 @@ A commonly used shorthand for assoc is `_d` - `import _dissoc as _d`, although t
 
 This embeds a pype expression in an fArg.  The accum passed to the embedding fArg is also passed to the embedded pype:
 ```
-from pype import _p
+from pype import _p as ep
 
-pype([1,2,3,4,5,6],{"number greater than 3":_p({_ > 3},len), "number less than three":_p({_ < 3},len])})
+pype([1,2,3,4,5,6],{"number greater than 3":ep({_ > 3},len), "number less than three":ep({_ < 3},len])})
 <=> {"number greater than 3": 3, "number less than 3": 2}
 ```
 
+## Quotes
+`Quote(<fArg|expression>)`
+
+Sometimes you may have functions that take other functions as arguments.  Lets say you had:
+```
+def add1(x):
+  return x+1
+  
+def apply_func(ls,f):
+  return [f(el) for el in ls]
+```
+There is a problem with the following statement:
+```
+pype( ls,
+      (apply_func,_,add1))
+```
+`add1` would be applied to ls, rather than being passed as an argument to `apply_func` as it should.  To fix this, we enclose it in a Quote object:
+```
+from pype.vals import Quote as q
+pype( ls,
+      (apply_func,_,q(add1)))
+```
+Ideally, I would like Quote to work on any fArg, so that we could do things like dynamic code injections - getting into LISP macro territory.
 # Other Features
 
 ## PypeVals
@@ -854,6 +885,8 @@ sort_by_index(ls,1) => [(2,3),(1,4),(-1,5)]
 
 Pype is interpreted, which means that a pype call goes through the list of fArgs, identifies the type of fArg it is, and then evaluates this.  You will quickly find that this can be a serious performance bottleneck in long lists or dictionaries.  To address this, I built a decorator, `optimize`, which evaluates pype only once, and then rebuilds the function using abstract syntax trees.  Because these AST's prefer the most optimized Python operations on collections (dict and list comprehensions), this can often lead to a performance boost of 1-2 orders of magnitude.
 
+I would recommend you apply the optimize decorator to all your pype functions - and soon I plan to take out the pype interpreter entirely, as now there are two implementations of pype - the interpreter and the optimizer.    
+
 Currently, `optimize` only runs on the returned pype call in a function:
 
 ```
@@ -883,7 +916,8 @@ As of today, optimized pype only covers a subset of fArg types:
 * list builds
 * dict builds
 * do expressions
-* embedded pype
+* embedded pypes
+* quotes
 
 The optimizer is a work in progress, so it is best to first ensure your program runs in interpreted pype, and apply the `optimize` decorator to each function, testing along the way.
 
@@ -961,9 +995,9 @@ def ls_times_itself(ls):
  return p(ls,
  	  [_+2],
 	  {_ < 4},
-          {'new_len':lenf*2,
+          {'newLen':lenf*2,
 	   'ls':_},
-	  _['ls']*_['new_len'],
+	  _.ls*_.newLen,
 	 )
 ```
 Pretty awesome, but be careful - it leads to a lot of bloat.  When you can, define your variables in the function body before the pype expression:
@@ -1035,8 +1069,9 @@ from flask import request, jsonify
 def add():
 
    return p( request.get_json(force=True),
-             _['numbers'],
-	     _db('sum',sum),
+             _.numbers,
+	     sum,
+	     db('sum'),
 	     jsonify,
 	   )  
 ```
