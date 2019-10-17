@@ -299,6 +299,14 @@ def from_mat(mat,i,j):
 
 
 @optimize
+def prob_vec(a):
+    
+    return p( a,
+              _+1e-100,
+              _/np.sum)
+
+
+@optimize
 def count_prob_array(ls,discount=0):
 
     return p( ls,
@@ -331,3 +339,32 @@ def filter_array(m,threshold=0):
 
     return m
 
+
+def softplus(x):
+
+    return np.log(1+np.exp(-np.abs(x))) + np.maximum(x,0)
+
+
+from pype.helpers import zip_dct,dct_keys,dct_values
+from pype import _p as ep
+
+@optimize
+def prob_dct(valDct):
+
+    return p( valDct,
+              (zip_dct,dct_keys,
+                       ep(dct_values,
+                          np.array,
+                          prob_vec,
+                         )),
+            )  
+
+
+def median_std(a):
+
+    a=np.array(a)
+    a=np.abs(a - np.median(a))
+
+    return np.median(a)
+    
+    
