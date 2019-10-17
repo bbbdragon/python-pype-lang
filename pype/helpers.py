@@ -817,3 +817,8 @@ def unique_dcts(dctLS):
     d={dct_hash(dct):dct for dct in dctLS}
 
     return list(d.values())
+
+
+def short_print(v):
+
+    print(f'{str(v)[:100]}')
