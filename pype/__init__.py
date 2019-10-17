@@ -17,7 +17,7 @@ from pype.vals import NameBookmark
 
 #import __builtins__
 
-__version__='1.1.9'
+__version__='1.2.0'
 
 #BUILTINS=set(__builtins.__dict__.values())
 
