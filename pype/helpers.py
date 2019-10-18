@@ -619,7 +619,13 @@ def get_call_or_false_core(obj,useCallable,keys):
     # Is this a numpy array?  Then index it directly.
     elif is_ndarray(obj):
 
-        return obj[keys]
+        if is_string(keys[0]):
+
+            obj=getattr(obj,keys[0])
+
+        else:
+
+            return obj[keys]
 
     # Is this a list or a tuple?
     elif is_list(obj) or is_tuple(obj):
