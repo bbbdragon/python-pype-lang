@@ -586,93 +586,6 @@ def rng(ln):
     return range(ln)
 
 
-def get_call_or_false_core(obj,useCallable,keys):
-    # print('get_call_or_false_core')
-    # print(f'{obj} is obj')
-    # print(f'{keys} is keys')
-    # print(f'{useCallable} is useCallable')
-
-    # If the object is a callable and we are allowed to call it, then
-    # we call it on either the next key or nothing at all.
-    if useCallable and is_callable(obj):
-        
-        # print('calling object')
-
-        if len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
-
-            obj=obj()
-
-        else:
-
-            obj=obj(key[0])
-
-        # print(f'{obj} is obj after calling')
-
-    # Base condition, there are no keys, or keys is a list with an empty tuple,
-    # so we return the object.
-    elif len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
-   
-        # print('no keys')
-
-        return obj
-
-    # Is this a numpy array?  Then index it directly.
-    elif is_ndarray(obj):
-
-        if is_string(keys[0]):
-
-            obj=getattr(obj,keys[0])
-
-        else:
-
-            return obj[keys]
-
-    # Is this a list or a tuple?
-    elif is_list(obj) or is_tuple(obj):
-
-        # Then the index will be an integer.  However, if it's out of bounds
-        # we return False.
-        if keys[0] >= len(obj):
-                
-            return False
-
-        # Otherwise let's set the object to the element at the index.  
-        obj=obj[keys[0]]
-
-    # Is this a dictionary?
-    elif is_dict(obj):
-
-        # Is the first key in the dictionary?  No?  Return False.
-        if keys[0] not in obj:
-
-            return False
-
-        # Get the object.
-        obj=obj[keys[0]]
-    
-    # What if obj is an object, and the first key is an attribute?
-    elif is_string(keys[0]) and hasattr(obj,keys[0]):
-        
-        # print('getting attribute')
-
-        # Get the attribute ...
-        obj=getattr(obj,keys[0])
-
-    # Otherwise, recurse into the next key.  Base condition at beginning of the 
-    # function.
-    return get_call_or_false_core(obj,useCallable,keys[1:])
-
-
-def get_or_false(obj,*keys):
-
-    return get_call_or_false_core(obj,False,keys)
-
-
-def get_call_or_false(obj,*keys):
-
-    return get_call_or_false_core(obj,True,keys)
-
-
 def reduce_func(func,iterable):
 
     return reduce(lambda h,x: func(h,x),iterable)
@@ -692,6 +605,10 @@ def set_union(set1,set2):
 
     return set1|set2
 
+
+def set_diff(set1,set2):
+
+    return set1-set2
 
 def set_intersection(set1,set2):
 
@@ -825,6 +742,96 @@ def unique_dcts(dctLS):
     return list(d.values())
 
 
+def short_string(v):
+
+    return f'{str(v)[:500]}'
+
 def short_print(v):
 
-    print(f'{str(v)[:100]}')
+    print(short_string(v))
+
+
+    
+def get_call_or_false_core(obj,useCallable,keys):
+    # print('get_call_or_false_core')
+    # print(f'{obj} is obj')
+    # print(f'{keys} is keys')
+    # print(f'{useCallable} is useCallable')
+
+    # If the object is a callable and we are allowed to call it, then
+    # we call it on either the next key or nothing at all.
+    if useCallable and is_callable(obj):
+        
+        # print('calling object')
+
+        if len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
+
+            obj=obj()
+
+        else:
+
+            obj=obj(key[0])
+
+        # print(f'{obj} is obj after calling')
+
+    # Base condition, there are no keys, or keys is a list with an empty tuple,
+    # so we return the object.
+    elif len(keys)==0 or (is_tuple(keys[0]) and len(keys[0])==0):
+   
+        # print('no keys')
+
+        return obj
+
+    # Is this a numpy array?  And is it being indexed? 
+    elif is_ndarray(obj):
+
+        if not is_string(keys[0]):
+
+            return obj[keys]
+
+        obj=getattr(obj,keys[0])
+
+    # Is this a list or a tuple?
+    elif is_list(obj) or is_tuple(obj):
+
+        # Then the index will be an integer.  However, if it's out of bounds
+        # we return False.
+        if keys[0] >= len(obj):
+                
+            return False
+
+        # Otherwise let's set the object to the element at the index.  
+        obj=obj[keys[0]]
+
+    # Is this a dictionary?
+    elif is_dict(obj):
+
+        # Is the first key in the dictionary?  No?  Return False.
+        if keys[0] not in obj:
+
+            return False
+
+        # Get the object.
+        obj=obj[keys[0]]
+    
+    # What if obj is an object, and the first key is an attribute?
+    elif is_string(keys[0]) and hasattr(obj,keys[0]):
+        
+        # print('getting attribute')
+
+        # Get the attribute ...
+        obj=getattr(obj,keys[0])
+
+    # Otherwise, recurse into the next key.  Base condition at beginning of the 
+    # function.
+    return get_call_or_false_core(obj,useCallable,keys[1:])
+
+
+def get_or_false(obj,*keys):
+
+    return get_call_or_false_core(obj,False,keys)
+
+
+def get_call_or_false(obj,*keys):
+
+    return get_call_or_false_core(obj,True,keys)
